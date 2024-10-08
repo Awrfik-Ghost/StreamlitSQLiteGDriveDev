@@ -161,16 +161,16 @@ def main():
         st.write(data)
         
     # Test the function with a specific file ID
-    file_id = file_id  # Replace with your actual file ID
-    file_name, parent_names = get_file_location(file_id)
+    if st.button("File Location"):
+        file_name, parent_names = get_file_location(file_id)
 
-    if file_name:
-        print(f"File Name: {file_name}")
-        print("Location in Google Drive:")
-        for name in parent_names:
-            print(f"- {name}")
-    else:
-        print("File not found or couldn't retrieve location.")
+        if file_name:
+            print(f"File Name: {file_name}")
+            print("Location in Google Drive:")
+            for name in parent_names:
+                print(f"- {name}")
+        else:
+            print("File not found or couldn't retrieve location.")
 
     
     if st.button("Upload DB to Google Drive"):
