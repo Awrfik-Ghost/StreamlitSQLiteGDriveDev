@@ -160,24 +160,17 @@ def main():
         data = c.fetchall()
         st.write(data)
         
-    # Test the function with a specific file ID
-    if st.button("File Location"):
-        file_name, parent_names = get_file_location(file_id)
+    # Button to display file location
+    if st.button("Get File Location"):
+        file_name, parent_names = get_file_location(service, file_id)
 
         if file_name:
-            print(f"File Name: {file_name}")
-            print("Location in Google Drive:")
+            st.write(f"**File Name:** {file_name}")
+            st.write("**Location in Google Drive:**")
             for name in parent_names:
-                print(f"- {name}")
+                st.write(f"- {name}")
         else:
-            print("File not found or couldn't retrieve location.")
-
-    
-    if st.button("Upload DB to Google Drive"):
-        result_id = upload_db_to_drive(service, db_name, file_id)
-
-        if result_id is None:
-            st.error("Failed to upload or update the database.")
+            st.error("File not found or couldn't retrieve location.")
 
     # Close the connection
     conn.close()
