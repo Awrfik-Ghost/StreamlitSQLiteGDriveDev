@@ -166,7 +166,6 @@ def main():
         if result_id is None:
             st.error("Failed to upload or update the database.")
 
-    
     if st.button("Get File Location"):
     locations = get_file_location(service, file_id)  # Ensure you pass the right number of arguments
     if locations:
