@@ -108,26 +108,45 @@ def list_files(service):
         st.error(f"An error occurred while listing files: {error}")
 
 
-def get_file_location(service, file_id):
+def list_files_with_location(service):
+    """Lists the files and their parent folders in Google Drive."""
     try:
-        # Get the file metadata
-        file_metadata = service.files().get(fileId=file_id, fields='id, name, parents').execute()
-        
-        # Get the file name and parent IDs
-        file_name = file_metadata.get('name')
-        parent_ids = file_metadata.get('parents', [])
+        results = service.files().list(pageSize=10, fields="nextPageToken, files(id, name, parents)").execute()
+        items = results.get('files', [])
+        if not items:
+            st.write("No files found.")
+        else:
+            st.write("Files and locations:")
+            for item in items:
+                st.write(f"File: {item['name']} (ID: {item['id']})")
+                
+                # Get folder name if available
+                parent_ids = item.get('parents', [])
+                if parent_ids:
+                    for parent_id in parent_ids:
+                        parent_metadata = service.files().get(fileId=parent_id, fields='id, name').execute()
+                        st.write(f"  Located in folder: {parent_metadata.get('name')} (ID: {parent_metadata.get('id')})")
+                else:
+                    st.write("  Located in: My Drive")
+    except HttpError as error:
+        st.error(f"An error occurred while listing files: {error}")
 
-        # Retrieve parent folder names
-        parent_names = []
-        for parent_id in parent_ids:
-            parent_metadata = service.files().get(fileId=parent_id, fields='id, name').execute()
-            parent_names.append(parent_metadata.get('name'))
 
-        return file_name, parent_names
+def share_file_with_user(service, file_id, user_email):
+    """Shares the uploaded file with a specified user."""
+    try:
+        # Permission settings: granting view access to your email
+        permission = {
+            'type': 'user',
+            'role': 'writer',  # Can change to 'reader' for read-only
+            'emailAddress': user_email
+        }
+        service.permissions().create(fileId=file_id, body=permission).execute()
+        st.success(f"File shared successfully with {user_email}")
+    except HttpError as error:
+        st.error(f"An error occurred while sharing the file: {error}")
 
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-        return None
+
 
 
 def main():
@@ -182,7 +201,12 @@ def main():
         db_name = db_name  # The name of your database file
         result_id = upload_db_to_drive(service, db_name, file_id)
 
-        if result_id is None:
+        if result_id:
+            share_file_with_user(service, result_id, "your-email@gmail.com")
+            st.write("Listing files in Google Drive...")
+            list_files_with_location(service)
+        
+        else:
             st.error("Failed to upload or update the database.")
 
 
