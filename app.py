@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 
 # Authenticate using the service account
 creds = service_account.Credentials.from_service_account_file(
-    'credentials.json',
+    st.secrets["gdrive"],
     scopes=['https://www.googleapis.com/auth/drive.file']
 )
 
