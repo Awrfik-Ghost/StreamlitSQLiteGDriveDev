@@ -139,7 +139,7 @@ def share_file_with_user(service, file_id, user_email):
         permission = {
             'type': 'user',
             'role': 'writer',  # Can change to 'reader' for read-only
-            'emailAddress': 'awrfikghost@gmail.com'
+            'emailAddress': user_email
         }
         service.permissions().create(fileId=file_id, body=permission).execute()
         st.success(f"File shared successfully with {user_email}")
@@ -202,7 +202,7 @@ def main():
         result_id = upload_db_to_drive(service, db_name, file_id)
 
         if result_id:
-            share_file_with_user(service, result_id, "your-email@gmail.com")
+            share_file_with_user(service, result_id, "awrfikghost@gmail.com")
             st.write("Listing files in Google Drive...")
             list_files_with_location(service)
         
