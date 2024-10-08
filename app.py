@@ -93,7 +93,7 @@ def main():
     service = build('drive', 'v3', credentials=creds)
 
     # File ID of the SQLite database in Google Drive
-    file_id = '12M9HJqSSmS-Dc4jO9ejvKSOf3Ir91X5-'  # Replace with your actual file ID
+    file_id = None  # Replace with your actual file ID
     db_name = 'tracking_expenses_app.db'
 
     # Download the SQLite file from Google Drive
