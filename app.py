@@ -119,9 +119,6 @@ def main():
     file_id = None  # Replace with your actual file ID
     db_name = 'tracking_expenses_app2.db'
 
-    # Download the SQLite file from Google Drive
-    if not os.path.exists(db_name):
-        download_db_from_drive(service, file_id, db_name)
 
     # Connect to the SQLite database
     conn = connect_db(db_name)
