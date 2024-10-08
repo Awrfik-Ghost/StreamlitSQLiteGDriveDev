@@ -105,7 +105,7 @@ def get_file_location(service, file_id):
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
-        return None, None
+        return None
 
 
 def main():
@@ -167,17 +167,13 @@ def main():
             st.error("Failed to upload or update the database.")
 
     
-    # Button to display file location
     if st.button("Get File Location"):
-        file_name, parent_names = get_file_location(service, file_id)
-
-        if file_name:
-            st.write(f"**File Name:** {file_name}")
-            st.write("**Location in Google Drive:**")
-            for name in parent_names:
-                st.write(f"- {name}")
-        else:
-            st.error("File not found or couldn't retrieve location.")
+    locations = get_file_location(service, file_id)  # Ensure you pass the right number of arguments
+    if locations:
+        for location in locations:
+            st.write(f"- {location}")
+    else:
+        st.error("File not found or couldn't retrieve location.")
 
     # Close the connection
     conn.close()
