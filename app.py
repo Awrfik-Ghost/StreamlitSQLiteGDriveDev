@@ -86,8 +86,7 @@ def list_files(service):
         st.error(f"An error occurred while listing files: {error}")
 
 
-# Function to get the file location
-def get_file_location(file_id):
+def get_file_location(service, file_id):
     try:
         # Get the file metadata
         file_metadata = service.files().get(fileId=file_id, fields='id, name, parents').execute()
@@ -105,9 +104,8 @@ def get_file_location(file_id):
         return file_name, parent_names
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        st.error(f"An error occurred: {e}")
         return None, None
-
 
 
 def main():
