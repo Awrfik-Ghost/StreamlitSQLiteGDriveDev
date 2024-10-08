@@ -13,7 +13,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 def authenticate_gdrive():
     # Load the service account credentials from secrets
     creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],  # Assuming your key is stored here
+        st.secrets["gdrive"],  # Assuming your key is stored here
         scopes=SCOPES
     )
     return creds
