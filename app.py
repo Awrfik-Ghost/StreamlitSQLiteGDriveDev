@@ -166,13 +166,6 @@ def main():
         if result_id is None:
             st.error("Failed to upload or update the database.")
 
-    if st.button("Get File Location"):
-    locations = get_file_location(service, file_id)  # Ensure you pass the right number of arguments
-    if locations:
-        for location in locations:
-            st.write(f"- {location}")
-    else:
-        st.error("File not found or couldn't retrieve location.")
 
     # Close the connection
     conn.close()
