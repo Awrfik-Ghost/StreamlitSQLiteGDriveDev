@@ -28,7 +28,7 @@ def download_db_from_drive(service, file_id, file_name=None):
         status, done = downloader.next_chunk()
 
 # Upload or update the SQLite database file to Google Drive
-def upload_db_to_drive(service, db_name, file_id):
+def upload_db_to_drive(service, db_name, file_id=None):
     try:
         file_metadata = {
             'name': db_name,
@@ -93,7 +93,7 @@ def main():
     service = build('drive', 'v3', credentials=creds)
 
     # File ID of the SQLite database in Google Drive
-    file_id = None  # Replace with your actual file ID
+    file_id = '12M9HJqSSmS-Dc4jO9ejvKSOf3Ir91X5-'  # Replace with your actual file ID
     db_name = 'tracking_expenses_app.db'
 
     # Download the SQLite file from Google Drive
