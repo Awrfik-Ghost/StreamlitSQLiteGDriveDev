@@ -108,17 +108,6 @@ def get_file_location(file_id):
         print(f"An error occurred: {e}")
         return None, None
 
-# Test the function with a specific file ID
-file_id = file_id  # Replace with your actual file ID
-file_name, parent_names = get_file_location(file_id)
-
-if file_name:
-    print(f"File Name: {file_name}")
-    print("Location in Google Drive:")
-    for name in parent_names:
-        print(f"- {name}")
-else:
-    print("File not found or couldn't retrieve location.")
 
 
 def main():
@@ -171,8 +160,18 @@ def main():
         data = c.fetchall()
         st.write(data)
         
-    if st.button("File Location"):
-        get_file_location(file_id)
+    # Test the function with a specific file ID
+    file_id = file_id  # Replace with your actual file ID
+    file_name, parent_names = get_file_location(file_id)
+
+    if file_name:
+        print(f"File Name: {file_name}")
+        print("Location in Google Drive:")
+        for name in parent_names:
+            print(f"- {name}")
+    else:
+        print("File not found or couldn't retrieve location.")
+
     
     if st.button("Upload DB to Google Drive"):
         result_id = upload_db_to_drive(service, db_name, file_id)
