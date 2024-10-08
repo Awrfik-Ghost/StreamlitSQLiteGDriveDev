@@ -109,7 +109,7 @@ def get_file_location(file_id):
         return None, None
 
 # Test the function with a specific file ID
-file_id = '1PZa4c0s53yYCIuJMxDzFAcY3AN7O4sa1'  # Replace with your actual file ID
+file_id = file_id  # Replace with your actual file ID
 file_name, parent_names = get_file_location(file_id)
 
 if file_name:
@@ -170,7 +170,10 @@ def main():
         c.execute('SELECT * FROM purchases_x')
         data = c.fetchall()
         st.write(data)
-
+        
+    if st.button("File Location"):
+        get_file_location(file_id)
+    
     if st.button("Upload DB to Google Drive"):
         result_id = upload_db_to_drive(service, db_name, file_id)
 
