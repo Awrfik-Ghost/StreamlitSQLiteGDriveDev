@@ -85,6 +85,42 @@ def list_files(service):
     except HttpError as error:
         st.error(f"An error occurred while listing files: {error}")
 
+
+# Function to get the file location
+def get_file_location(file_id):
+    try:
+        # Get the file metadata
+        file_metadata = service.files().get(fileId=file_id, fields='id, name, parents').execute()
+        
+        # Get the file name and parent IDs
+        file_name = file_metadata.get('name')
+        parent_ids = file_metadata.get('parents', [])
+
+        # Retrieve parent folder names
+        parent_names = []
+        for parent_id in parent_ids:
+            parent_metadata = service.files().get(fileId=parent_id, fields='id, name').execute()
+            parent_names.append(parent_metadata.get('name'))
+
+        return file_name, parent_names
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None, None
+
+# Test the function with a specific file ID
+file_id = file_id  # Replace with your actual file ID
+file_name, parent_names = get_file_location(file_id)
+
+if file_name:
+    print(f"File Name: {file_name}")
+    print("Location in Google Drive:")
+    for name in parent_names:
+        print(f"- {name}")
+else:
+    print("File not found or couldn't retrieve location.")
+
+
 def main():
     st.title("SQLite Database with Google Drive Storage")
 
