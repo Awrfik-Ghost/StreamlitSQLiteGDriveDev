@@ -159,7 +159,16 @@ def main():
         c.execute('SELECT * FROM purchases_x')
         data = c.fetchall()
         st.write(data)
-        
+
+    if st.button("Upload DB to Google Drive"):
+        file_id = file_id  # Replace with the actual file ID
+        db_name = db_name  # The name of your database file
+        result_id = upload_db_to_drive(service, db_name, file_id)
+
+        if result_id is None:
+            st.error("Failed to upload or update the database.")
+
+    
     # Button to display file location
     if st.button("Get File Location"):
         file_name, parent_names = get_file_location(service, file_id)
