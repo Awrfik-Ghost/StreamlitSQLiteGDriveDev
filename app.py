@@ -80,7 +80,7 @@ def upload_db_to_drive(service, db_name, file_id):
                 fields='id'
             ).execute()
             st.success(f"Database uploaded successfully! File ID: {file.get('id')}")
-            st.write(f"File metadata after creation: {file}")
+            st.write(f"File metadata after creation: {file}{db_name}")
 
         return file.get('id')  # Return the file ID
 
