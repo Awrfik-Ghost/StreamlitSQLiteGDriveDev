@@ -2,12 +2,14 @@ import sqlite3
 import streamlit as st
 import os
 import io
+from pandas import DataFrame
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
+
 
 # Authenticate using the service account from Streamlit secrets
 def authenticate_gdrive():
@@ -17,6 +19,7 @@ def authenticate_gdrive():
         scopes=SCOPES
     )
     return creds
+    
 
 # Download SQLite database from Google Drive
 def download_db_from_drive(service, file_id, file_name=None):
@@ -26,6 +29,7 @@ def download_db_from_drive(service, file_id, file_name=None):
     done = False
     while not done:
         status, done = downloader.next_chunk()
+
 
 def upload_db_to_drive(service, db_name, file_id):
     """Uploads or updates the SQLite database file to Google Drive.
@@ -93,6 +97,7 @@ def upload_db_to_drive(service, db_name, file_id):
 def connect_db(db_name):
     return sqlite3.connect(db_name)
 
+
 def list_files(service):
     """Lists the files in Google Drive to help verify file IDs."""
     try:
@@ -119,7 +124,7 @@ def list_files_with_location(service):
             st.write("Files and locations:")
             for item in items:
                 st.write(f"File: {item['name']} (ID: {item['id']})")
-                
+
                 # Get folder name if available
                 parent_ids = item.get('parents', [])
                 if parent_ids:
@@ -147,6 +152,17 @@ def share_file_with_user(service, file_id, user_email):
         st.error(f"An error occurred while sharing the file: {error}")
 
 
+def check_existing_file(service, file_name):
+    """Check if a file with the given name already exists in Google Drive."""
+    try:
+        results = service.files().list(q=f"name='{file_name}'", fields="files(id, name)").execute()
+        items = results.get('files', [])
+        if items:
+            return items[0]['id']  # Return the ID of the first match
+        return None
+    except HttpError as error:
+        st.error(f"An error occurred while checking for existing files: {error}")
+        return None
 
 
 def main():
@@ -159,7 +175,6 @@ def main():
     # File ID of the SQLite database in Google Drive
     file_id = None  # Replace with your actual file ID
     db_name = 'tracking_expenses_app2.db'
-
 
     # Connect to the SQLite database
     conn = connect_db(db_name)
@@ -194,24 +209,28 @@ def main():
     if st.button("View Purchases"):
         c.execute('SELECT * FROM purchases_x')
         data = c.fetchall()
-        st.write(data)
+        if data:
+            results_df = DataFrame(data, columns=[desc[0] for desc in c.description])
+            st.dataframe(results_df)
+        else:
+            st.write("No data found for the selected criteria.")
 
     if st.button("Upload DB to Google Drive"):
-        file_id = file_id  # Replace with the actual file ID
-        db_name = db_name  # The name of your database file
-        result_id = upload_db_to_drive(service, db_name, file_id)
+        existing_file_id = check_existing_file(service, db_name)
+        if existing_file_id:
+            result_id = upload_db_to_drive(service, db_name, existing_file_id)
+            st.write(f"Updated existing file with ID: {result_id}")
+        else:
+            result_id = upload_db_to_drive(service, db_name, None)  # Create new file
+            st.write(f"Created new file with ID: {result_id}")
 
+        # Share the file with your email
         if result_id:
             share_file_with_user(service, result_id, "awrfikghost@gmail.com")
-            st.write("Listing files in Google Drive...")
-            list_files_with_location(service)
-        
-        else:
-            st.error("Failed to upload or update the database.")
-
 
     # Close the connection
     conn.close()
+
 
 if __name__ == "__main__":
     main()
