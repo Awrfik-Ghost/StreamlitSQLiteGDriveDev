@@ -20,18 +20,18 @@ def main():
     service = build('drive', 'v3', credentials=creds)
 
         
-    # if st.button("List Files"):
-    #     # Specify the directory path
-    #     directory_path = '/mount/src/streamlitsqlitegdrivedev/'
-    #     files = list_files_in_directory(directory_path)
-    #     # Display the file information in Streamlit
-    #     if files:
-    #         st.write("Files in Directory:")
-    #         for file in files:
-    #             st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
-    #     else:
-    #         st.write("No files found in the specified directory.")
-    #     list_files(service)    
+    if st.button("List Files"):
+        # Specify the directory path
+        directory_path = '/mount/src/streamlitsqlitegdrivedev/'
+        files = list_files_in_directory(directory_path)
+        # Display the file information in Streamlit
+        if files:
+            st.write("Files in Directory:")
+            for file in files:
+                st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
+        else:
+            st.write("No files found in the specified directory.")
+        list_files(service)    
     
     
     gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
