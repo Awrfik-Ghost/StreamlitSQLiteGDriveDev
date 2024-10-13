@@ -19,6 +19,8 @@ def main():
     service = build('drive', 'v3', credentials=creds)
     
     if st.button('Check the file status'):
+        # Define IST timezone
+        ist_timezone = pytz.timezone('Asia/Kolkata')
         gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
         st.write(f"Google Drive file last modified (IST): {gdrive_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
