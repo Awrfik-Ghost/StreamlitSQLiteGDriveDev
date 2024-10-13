@@ -48,8 +48,11 @@ def main():
     
     
     # Compare the modification times and download if Google Drive file is newer
-    if not local_modified_time or gdrive_modified_time > local_modified_time:
-        # st.write("Google Drive file is newer, downloading the latest file...")
+    # if not local_modified_time or gdrive_modified_time > local_modified_time:
+    #     # st.write("Google Drive file is newer, downloading the latest file...")
+    #     download_db_from_drive(service, FILE_ID, DB_NAME)
+
+    if st.button("Refresh"):
         download_db_from_drive(service, FILE_ID, DB_NAME)
 
     project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
