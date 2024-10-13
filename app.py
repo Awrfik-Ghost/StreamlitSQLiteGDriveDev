@@ -15,13 +15,7 @@ def main():
     creds = authenticate_gdrive()
     conn = connect_db(DB_NAME)
     cursor = conn.cursor()
-    service = build('drive', 'v3', credentials=creds)
-    
-    # Specify your database file name and file ID from Google Drive
-    file_id = '1btD90XEnzZeCvQ42CTQkQORyWoTNhuNw'  # Replace with your actual file ID
-
-    # Download the database file from Google Drive
-    download_db_from_drive(service, file_id, DB_NAME)    
+    service = build('drive', 'v3', credentials=creds)   
 
     project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
     project = fetch_data_from_db(DB_NAME, project_query)
