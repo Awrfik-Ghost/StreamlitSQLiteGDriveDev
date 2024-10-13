@@ -147,33 +147,17 @@ def to_lower_case(column_values):
     return str(column_values).lower()
 
 
-# Function to download the SQLite DB file from Google Drive
 def download_db_from_drive(service, file_id, file_name):
     """Download a file from Google Drive."""
-    if os.path.exists(file_name):
-        db_path = os.path.abspath(file_name)
-        # Get the last modification time (in seconds since epoch)
-        last_modified_time = os.path.getmtime(db_path)
-
-        # Convert it to a human-readable format
-        last_modified_time_formatted = datetime.fromtimestamp(last_modified_time).strftime('%Y-%m-%d %H:%M:%S')
-
-        # Display the last modified time
-        st.write(f"Last modified time of {db_path}: {last_modified_time_formatted}")
-        st.write(f"Database path: {db_path}")
-        st.info(f"Database '{file_name}' already exists. Skipping download.")
-        return  # Skip download if the file already exists
-
     request = service.files().get_media(fileId=file_id)
-    fh = io.FileIO(file_name, 'wb')
+    fh = io.FileIO(file_name, 'wb')  # Create a file handle for writing
     downloader = MediaIoBaseDownload(fh, request)
-
+    
     done = False
     while not done:
-        status, done = downloader.next_chunk()
+        status, done = downloader.next_chunk()  # Download in chunks
         st.write(f"Download progress: {int(status.progress() * 100)}%")
     st.success(f"Database downloaded successfully: {file_name}")
-
 
 def get_google_drive_modified_time(service, file_id):
     """Fetches the last modified time of a file in Google Drive."""
