@@ -8,7 +8,6 @@ from googleapiclient.errors import HttpError
 from config import SCOPES
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from datetime import datetime
-import pytz
 
 
 def authenticate_gdrive():
@@ -183,20 +182,12 @@ def get_google_drive_modified_time(service, file_id):
     
     # Parse the modified time and convert it to a datetime object
     gdrive_modified_time = datetime.strptime(modified_time, '%Y-%m-%dT%H:%M:%S.%fZ')
-    
-    # Convert UTC to IST
-    gdrive_time_with_tz = pytz.utc.localize(gdrive_modified_time)
-    return gdrive_time_with_tz.astimezone(ist_timezone)
+    return gdrive_modified_time
 
 def get_local_file_modified_time(file_path):
     """Fetches the last modified time of a local file."""
     if os.path.exists(file_path):
         last_modified_time = os.path.getmtime(file_path)
-        utc_time = datetime.utcfromtimestamp(last_modified_time)
-        # Define IST timezone
-        ist_timezone = pytz.timezone('Asia/Kolkata')
-        # Convert UTC to IST
-        utc_time_with_tz = pytz.utc.localize(utc_time)
-        return utc_time_with_tz.astimezone(ist_timezone)
+        return datetime.utcfromtimestamp(last_modified_time)  # Return as UTC
     else:
         return None  # If the file does not exist
