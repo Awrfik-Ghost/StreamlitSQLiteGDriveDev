@@ -177,15 +177,28 @@ def get_local_file_modified_time(file_path):
         return None  # If the file does not exist
 
 def list_files_in_directory(directory):
-    """List all files in the specified directory."""
-    try:
-        # List all files in the given directory
-        files = os.listdir(directory)
-        if files:
-            st.write("Files in directory:")
-            for file in files:
-                st.write(file)
-        else:
-            st.write("No files found in the directory.")
-    except Exception as e:
-        st.error(f"An error occurred while listing files: {e}")
+    """Lists file names, their IDs (if applicable), and last modified datetime in the specified directory."""
+    # Initialize a list to hold the file information
+    file_info = []
+
+    # Iterate through the files in the specified directory
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+
+        # Check if it's a file
+        if os.path.isfile(file_path):
+            # Get the last modified time
+            last_modified_time = os.path.getmtime(file_path)
+            last_modified_datetime = datetime.utcfromtimestamp(last_modified_time)
+
+            # Optionally, you can generate a unique file ID (e.g., using the file's path hash)
+            file_id = hash(file_path)  # Simple hash as a unique identifier
+
+            # Append the file info as a dictionary
+            file_info.append({
+                'file_name': filename,
+                'file_id': file_id,
+                'last_modified': last_modified_datetime.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+    return file_info
