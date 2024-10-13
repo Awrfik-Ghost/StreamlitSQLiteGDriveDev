@@ -159,7 +159,7 @@ def download_db_from_drive(service, file_id, file_name):
         last_modified_time_formatted = datetime.fromtimestamp(last_modified_time).strftime('%Y-%m-%d %H:%M:%S')
 
         # Display the last modified time
-        print(f"Last modified time of {db_path}: {last_modified_time_formatted}")
+        st.write(f"Last modified time of {db_path}: {last_modified_time_formatted}")
         st.write(f"Database path: {db_path}")
         st.info(f"Database '{file_name}' already exists. Skipping download.")
         return  # Skip download if the file already exists
