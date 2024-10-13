@@ -1,5 +1,4 @@
 import streamlit as st
-import io
 from utils import authenticate_gdrive, fetch_data_from_db, list_files, connect_db, check_existing_file, upload_db_to_drive, share_file_with_user, download_db_from_drive
 from config import DB_NAME
 from pandas import DataFrame
