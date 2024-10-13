@@ -19,20 +19,20 @@ def main():
 
     service = build('drive', 'v3', credentials=creds)
 
-    """    
-    if st.button("List Files"):
-        # Specify the directory path
-        directory_path = '/mount/src/streamlitsqlitegdrivedev/'
-        files = list_files_in_directory(directory_path)
-        # Display the file information in Streamlit
-        if files:
-            st.write("Files in Directory:")
-            for file in files:
-                st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
-        else:
-            st.write("No files found in the specified directory.")
-        list_files(service)    
-    """
+        
+    # if st.button("List Files"):
+    #     # Specify the directory path
+    #     directory_path = '/mount/src/streamlitsqlitegdrivedev/'
+    #     files = list_files_in_directory(directory_path)
+    #     # Display the file information in Streamlit
+    #     if files:
+    #         st.write("Files in Directory:")
+    #         for file in files:
+    #             st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
+    #     else:
+    #         st.write("No files found in the specified directory.")
+    #     list_files(service)    
+    
     
     gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
     st.write(f"Google Drive file last modified: {gdrive_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -40,12 +40,12 @@ def main():
     # Get the last modified time of the local database file
     local_modified_time = get_local_file_modified_time(DB_NAME)
     
-    """
-    if local_modified_time:
-        st.write(f"Local file last modified: {local_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    else:
-        st.write("Local file does not exist.")
-    """
+    
+    # if local_modified_time:
+    #     st.write(f"Local file last modified: {local_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    # else:
+    #     st.write("Local file does not exist.")
+    
     
     # Compare the modification times and download if Google Drive file is newer
     if not local_modified_time or gdrive_modified_time > local_modified_time:
