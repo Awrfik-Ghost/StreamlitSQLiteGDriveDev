@@ -151,4 +151,4 @@ def download_db_from_drive(service, file_id, file_name):
     done = False
     while not done:
         status, done = downloader.next_chunk()
-    st.success(f"Database downloaded successfully: {file_name}")
+
