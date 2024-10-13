@@ -150,6 +150,7 @@ def to_lower_case(column_values):
 def download_db_from_drive(service, file_id, file_name):
     """Download a file from Google Drive."""
     if os.path.exists(file_name):
+        st.write(f"Database path: {os.path.abspath(file_name)}")
         st.info(f"Database '{file_name}' already exists. Skipping download.")
         return  # Skip download if the file already exists
 
@@ -162,4 +163,3 @@ def download_db_from_drive(service, file_id, file_name):
         status, done = downloader.next_chunk()
         st.write(f"Download progress: {int(status.progress() * 100)}%")
     st.success(f"Database downloaded successfully: {file_name}")
-    st.write(f"Database path: {os.path.abspath(file_name)}")
