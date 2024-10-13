@@ -147,7 +147,7 @@ def to_lower_case(column_values):
 
 
 # Function to download the SQLite DB file from Google Drive
-def download_db_from_drive(service, file_id, file_name):
+def download_db_from_drive(service, file_id, file_name, db_name):
     """Download a file from Google Drive."""
     if os.path.exists(file_name):
         st.info(f"Database '{file_name}' already exists. Skipping download.")
@@ -162,3 +162,4 @@ def download_db_from_drive(service, file_id, file_name):
         status, done = downloader.next_chunk()
         st.write(f"Download progress: {int(status.progress() * 100)}%")
     st.success(f"Database downloaded successfully: {file_name}")
+    st.write(f"Database path: {os.path.abspath(db_name)}")
