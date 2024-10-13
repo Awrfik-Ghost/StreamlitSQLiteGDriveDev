@@ -7,6 +7,7 @@ from google.oauth2 import service_account
 from googleapiclient.errors import HttpError
 from config import SCOPES
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from datetime import datetime
 
 
 def authenticate_gdrive():
@@ -150,6 +151,14 @@ def to_lower_case(column_values):
 def download_db_from_drive(service, file_id, file_name):
     """Download a file from Google Drive."""
     if os.path.exists(file_name):
+        # Get the last modification time (in seconds since epoch)
+        last_modified_time = os.path.getmtime(db_path)
+
+        # Convert it to a human-readable format
+        last_modified_time_formatted = datetime.fromtimestamp(last_modified_time).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Display the last modified time
+        print(f"Last modified time of {db_path}: {last_modified_time_formatted}")
         st.write(f"Database path: {os.path.abspath(file_name)}")
         st.info(f"Database '{file_name}' already exists. Skipping download.")
         return  # Skip download if the file already exists
