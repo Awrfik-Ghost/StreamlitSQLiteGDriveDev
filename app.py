@@ -92,8 +92,6 @@ def main():
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
                 conn.commit()
-                result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
-                share_file_with_user(service, result_id, "awrfikghost@gmail.com")
                 st.success("Data submitted successfully!")
             else:
                 st.error("All fields are mandatory! Please fill in all fields.")
@@ -122,7 +120,7 @@ def main():
             else:
                 st.write("No data found for the selected criteria.")
 
-        if st.button("Upload DB to Google Drive"):
+        if st.button("Save"):
             existing_file_id = check_existing_file(service, DB_NAME)
             if existing_file_id:
                 result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
