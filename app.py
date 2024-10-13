@@ -1,25 +1,25 @@
 import streamlit as st
-from utils import *
+from utils import (authenticate_gdrive, connect_db, download_db_from_drive, fetch_data_from_db,
+                   check_existing_file, upload_db_to_drive, share_file_with_user)
 from config import DB_NAME, FILE_ID
 from pandas import DataFrame
 from googleapiclient.discovery import build
-import pytz
 
-st.set_page_config(page_title="Tracking Expenses App", page_icon="🧾", layout="wide")
+st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
 
 st.title("📚 Welcome to the Expense Tracker App")
-st.sidebar.success("Select a page from the sidebar to get started.")
+st.sidebar.success("Navigate yourself")
 
 
 def main():
-    st.header("Project Selection Page")
+    st.header("Expenses Data Entry")
     creds = authenticate_gdrive()
     conn = connect_db(DB_NAME)
     cursor = conn.cursor()
 
     service = build('drive', 'v3', credentials=creds)
 
-        
+
     # if st.button("List Files"):
     #     # Specify the directory path
     #     directory_path = '/mount/src/streamlitsqlitegdrivedev/'
@@ -31,22 +31,22 @@ def main():
     #             st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
     #     else:
     #         st.write("No files found in the specified directory.")
-    #     list_files(service)    
-    
-    
-    gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
+    #     list_files(service)
+
+
+    # gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
     # st.write(f"Google Drive file last modified: {gdrive_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Get the last modified time of the local database file
-    local_modified_time = get_local_file_modified_time(DB_NAME)
-    
-    
+    # local_modified_time = get_local_file_modified_time(DB_NAME)
+
+
     # if local_modified_time:
     #     st.write(f"Local file last modified: {local_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
     # else:
     #     st.write("Local file does not exist.")
-    
-    
+
+
     # Compare the modification times and download if Google Drive file is newer
     # if not local_modified_time or gdrive_modified_time > local_modified_time:
     #     # st.write("Google Drive file is newer, downloading the latest file...")
@@ -60,20 +60,20 @@ def main():
     if project:
         # Adding a blank option to the project selection
         project_with_blank = ["Project Names with Project ID"] + project
-    
+
         project_selection = st.selectbox("Select the project:", project_with_blank)
         project_id_selected = project_selection.split(' - ')[0]
-    
+
         if project_selection != "Project Names with Project ID":
             st.success(f"You have selected the project: {project_selection}")
             # Store the project ID in session state
             st.session_state['project_id_selected'] = project_id_selected
             project_id = st.session_state['project_id_selected']
-    
+
             categories = fetch_data_from_db(DB_NAME, 'SELECT category FROM category')
             payment_options = fetch_data_from_db(DB_NAME, 'SELECT mode_of_payment FROM mode_of_payment')
             stage_options = fetch_data_from_db(DB_NAME, 'SELECT stage FROM stages')
-    
+
             # Create a simple form for user data input
             with st.form("purchases_data_entry"):
                 item_name = st.text_input("Enter the item name:")
@@ -87,7 +87,7 @@ def main():
                 paid_amount = st.number_input("Enter the paid amount:", min_value=0, max_value=1000000)
                 notes = st.text_input("Add notes if necessary:")
                 submitted = st.form_submit_button("Submit")
-    
+
             if submitted:
                 # Check if any fields are empty
                 required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
@@ -101,7 +101,7 @@ def main():
                     st.success("Data submitted successfully!")
                 else:
                     st.error("All fields are mandatory! Please fill in all fields.")
-    
+
             if st.button("View Purchases"):
                 cursor.execute(f'''
                     SELECT 
@@ -125,7 +125,7 @@ def main():
                     st.dataframe(results_df)
                 else:
                     st.write("No data found for the selected criteria.")
-    
+
             if st.button("Save"):
                 existing_file_id = check_existing_file(service, DB_NAME)
                 if existing_file_id:
@@ -134,12 +134,11 @@ def main():
                 else:
                     result_id = upload_db_to_drive(service, DB_NAME, None)  # Create new file
                     st.write(f"Created new file with ID: {result_id}")
-    
+
                 # Share the file with your email
                 if result_id:
                     share_file_with_user(service, result_id, "awrfikghost@gmail.com")
 
-    
     # Close the connection at the end
     cursor.close()
     conn.close()
