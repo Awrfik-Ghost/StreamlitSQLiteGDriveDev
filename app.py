@@ -18,6 +18,9 @@ def main():
     cursor = conn.cursor()
 
     service = build('drive', 'v3', credentials=creds)
+
+    if st.button("List Files"):
+        list_files(service)    
     
     if st.button('Check the file status'):
         gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
@@ -121,8 +124,6 @@ def main():
             if result_id:
                 share_file_with_user(service, result_id, "awrfikghost@gmail.com")
 
-    if st.button("List Files"):
-        list_files(service)
 
     # Close the connection at the end
     cursor.close()
