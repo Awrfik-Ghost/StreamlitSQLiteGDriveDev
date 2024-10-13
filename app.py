@@ -35,7 +35,7 @@ def main():
     
     
     gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
-    st.write(f"Google Drive file last modified: {gdrive_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    # st.write(f"Google Drive file last modified: {gdrive_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Get the last modified time of the local database file
     local_modified_time = get_local_file_modified_time(DB_NAME)
@@ -49,11 +49,11 @@ def main():
     
     # Compare the modification times and download if Google Drive file is newer
     if not local_modified_time or gdrive_modified_time > local_modified_time:
-        #st.write("Google Drive file is newer, downloading the latest file...")
+        # st.write("Google Drive file is newer, downloading the latest file...")
         download_db_from_drive(service, FILE_ID, DB_NAME)
     else:
-        None
-        #st.write("Local file is up to date.") 
+        return None
+        # st.write("Local file is up to date.") 
 
     project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
     project = fetch_data_from_db(DB_NAME, project_query)
