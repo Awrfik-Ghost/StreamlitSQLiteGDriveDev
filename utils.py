@@ -173,3 +173,28 @@ def download_db_from_drive(service, file_id, file_name):
         status, done = downloader.next_chunk()
         st.write(f"Download progress: {int(status.progress() * 100)}%")
     st.success(f"Database downloaded successfully: {file_name}")
+
+
+def get_google_drive_modified_time(service, file_id):
+    """Fetches the last modified time of a file in Google Drive."""
+    file = service.files().get(fileId=file_id, fields='modifiedTime').execute()
+    modified_time = file['modifiedTime']
+    
+    # Parse the modified time and convert it to a datetime object
+    gdrive_modified_time = datetime.strptime(modified_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+    
+    # Convert UTC to IST
+    gdrive_time_with_tz = pytz.utc.localize(gdrive_modified_time)
+    return gdrive_time_with_tz.astimezone(ist_timezone)
+
+def get_local_file_modified_time(file_path):
+    """Fetches the last modified time of a local file."""
+    if os.path.exists(file_path):
+        last_modified_time = os.path.getmtime(file_path)
+        utc_time = datetime.utcfromtimestamp(last_modified_time)
+        
+        # Convert UTC to IST
+        utc_time_with_tz = pytz.utc.localize(utc_time)
+        return utc_time_with_tz.astimezone(ist_timezone)
+    else:
+        return None  # If the file does not exist
