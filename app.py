@@ -53,9 +53,8 @@ def main():
 
         if submitted:
             # Check if any fields are empty
-            if any([item_name == "", vendor == "", mode_of_payment == "", category == "", stage == "", date == ""]):
-                st.error("All fields are mandatory! Please fill in all fields.")
-            else:
+            required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
+            if all(required_fields) and purchase_amount >= 0:
                 cursor.execute('''
                         INSERT INTO purchases 
                         (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
@@ -63,11 +62,22 @@ def main():
                     ''', (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
                 conn.commit()
                 st.success("Data submitted successfully!")
+            else:
+                st.error("All fields are mandatory! Please fill in all fields.")
 
         if st.button("View Purchases"):
             cursor.execute(f'''
-                SELECT purchase_id as Purchase_ID, item_name as Item_Name, stage as Stage, category as Category, vendor as Vendor, 
-                    date as Purchase_Date, purchase_amount as Purchase_Amount, mode_of_payment as Mode_of_Payment, 
+                SELECT 
+                    purchase_id as Purchase_ID, 
+                    item_name as Item_Name, 
+                    item_qty as Item_Quantity, 
+                    vendor as Vendor, 
+                    stage as Stage, 
+                    category as Category,
+                    date as Date, 
+                    purchase_amount as Purchase_Amount, 
+                    mode_of_payment as Mode_of_Payment,
+                    paid_amount as Paid_Amount,
                     notes as Notes
                     FROM purchases
                     WHERE project_id = {project_id}    
