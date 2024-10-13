@@ -193,7 +193,8 @@ def get_local_file_modified_time(file_path):
     if os.path.exists(file_path):
         last_modified_time = os.path.getmtime(file_path)
         utc_time = datetime.utcfromtimestamp(last_modified_time)
-        
+        # Define IST timezone
+        ist_timezone = pytz.timezone('Asia/Kolkata')
         # Convert UTC to IST
         utc_time_with_tz = pytz.utc.localize(utc_time)
         return utc_time_with_tz.astimezone(ist_timezone)
