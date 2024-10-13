@@ -92,6 +92,8 @@ def main():
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
                 conn.commit()
+                result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
+                share_file_with_user(service, result_id, "awrfikghost@gmail.com")
                 st.success("Data submitted successfully!")
             else:
                 st.error("All fields are mandatory! Please fill in all fields.")
