@@ -17,12 +17,12 @@ def main():
     service = build('drive', 'v3', credentials=creds)
 
     project_query = 'SELECT CONCAT(project_id, " - ", project_name) FROM projects'
-    project = fetch_data_from_db(db_name, project_query)
+    #project = fetch_data_from_db(db_name, project_query)
 
     # Adding a blank option to the project selection
     project_with_blank = ["Project Names with Project ID"] + project
 
-    project_selection = st.selectbox("Select the project:", project_with_blank)
+    #project_selection = st.selectbox("Select the project:", project_with_blank)
     project_id_selected = project_selection.split(' - ')[0] if project_selection != "Project Names with Project ID" else None
 
     if project_selection != "Project Names with Project ID":
