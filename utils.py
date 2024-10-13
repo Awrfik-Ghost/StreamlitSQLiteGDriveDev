@@ -72,7 +72,7 @@ def upload_db_to_drive(service, db_name, file_id):
             try:
                 # Attempt to retrieve the file to ensure it exists
                 service.files().get(fileId=file_id).execute()
-                st.write("Updating the existing file...")
+                #st.write("Updating the existing file...")
 
                 # Proceed to update the file
                 file = service.files().update(
@@ -81,8 +81,9 @@ def upload_db_to_drive(service, db_name, file_id):
                     media_body=media
                 ).execute()
 
-                st.success(f"Database updated successfully! File ID: {file.get('id')}")
-                st.write(f"File metadata after update: {file}")
+                st.success("Database updated successfully!")
+                #st.write(f"File ID: {file.get('id')}")
+                #st.write(f"File metadata after update: {file}")
 
             except HttpError as e:
                 if e.resp.status == 404:
