@@ -8,31 +8,36 @@ st.title("📚 Welcome to the Expense Tracker App")
 st.sidebar.success("Select a page from the sidebar to get started.")
 
 
-def main():
-    st.header("Project Selection Page")
+# At the start of your app, before connecting to the database
 
-    creds = authenticate_gdrive()
-    db_name = 'Tracking_Expenses_Schema.db'
+def download_db_from_drive(service, file_id, file_name):
+    request = service.files().get_media(fileId=file_id)
+    fh = io.FileIO(file_name, 'wb')
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    st.success(f"Database downloaded successfully: {file_name}")
 
-    service = build('drive', 'v3', credentials=creds)
+# Authenticate and create Google Drive service
+creds = authenticate_gdrive()
+service = build('drive', 'v3', credentials=creds)
 
-    project_query = 'SELECT CONCAT(project_id, " - ", project_name) FROM projects'
-    project = fetch_data_from_db(db_name, project_query)
+# Specify your database file name and file ID from Google Drive
+db_name = 'Tracking_Expenses_Schema.db'
+file_id = '1btD90XEnzZeCvQ42CTQkQORyWoTNhuNw'  # Replace with your actual file ID
 
-    # Adding a blank option to the project selection
-    project_with_blank = ["Project Names with Project ID"] + project
+# Download the database file from Google Drive
+download_db_from_drive(service, file_id, db_name)
 
-    project_selection = st.selectbox("Select the project:", project_with_blank)
-    project_id_selected = project_selection.split(' - ')[0] if project_selection != "Project Names with Project ID" else None
+# Connect to the SQLite database
+conn = connect_db(db_name)
+cursor = conn.cursor()
 
-    if project_selection != "Project Names with Project ID":
-        st.success(f"You have selected the project: {project_selection}")
+# Check if the 'projects' table exists
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects';")
+if cursor.fetchone() is None:
+    st.error("The 'projects' table does not exist in the database.")
+else:
+    st.success("The 'projects' table exists.")
 
-    # Store the project ID in session state
-    st.session_state['project_id_selected'] = project_id_selected
-
-    if st.button("List Files"):
-        list_files(service)
-
-if __name__ == "__main__":
-    main()
