@@ -134,3 +134,11 @@ def check_existing_file(service, file_name):
         return None
 
 
+# Display all purchases data for each
+def to_title_case(column_values):
+    return [str(value).title() for value in column_values]
+
+
+# Display all purchases data for each
+def to_lower_case(column_values):
+    return str(column_values).lower()
