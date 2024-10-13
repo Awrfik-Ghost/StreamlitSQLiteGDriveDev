@@ -139,8 +139,6 @@ def main():
                 if result_id:
                     share_file_with_user(service, result_id, "awrfikghost@gmail.com")
 
-    else:
-        st.info('Try clicking refresh button above')
     
     # Close the connection at the end
     cursor.close()
