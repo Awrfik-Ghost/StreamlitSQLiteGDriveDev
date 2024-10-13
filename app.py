@@ -18,7 +18,7 @@ def main():
 
     service = build('drive', 'v3', credentials=creds)
 
-    project_query = 'SELECT project_id || ' ' || project_name AS project FROM projects;'
+    project_query = "SELECT project_id || ' ' || project_name AS project FROM projects;"
     project = fetch_data_from_db(db_name, project_query)
 
     # Adding a blank option to the project selection
