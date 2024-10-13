@@ -1,7 +1,7 @@
 import streamlit as st
 import io
 from googleapiclient.http import MediaIoBaseDownload
-from utils import authenticate_gdrive, fetch_data_from_db, list_files
+from utils import authenticate_gdrive, fetch_data_from_db, list_files, connect_db
 from googleapiclient.discovery import build
 
 st.set_page_config(page_title="Tracking Expenses App", page_icon="🧾", layout="wide")
