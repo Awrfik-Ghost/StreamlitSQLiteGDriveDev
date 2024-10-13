@@ -142,3 +142,13 @@ def to_title_case(column_values):
 # Display all purchases data for each
 def to_lower_case(column_values):
     return str(column_values).lower()
+
+# Download the db file from drive
+def download_db_from_drive(service, file_id, file_name):
+    request = service.files().get_media(fileId=file_id)
+    fh = io.FileIO(file_name, 'wb')
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    st.success(f"Database downloaded successfully: {file_name}")
