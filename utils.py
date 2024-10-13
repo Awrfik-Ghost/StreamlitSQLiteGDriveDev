@@ -23,13 +23,22 @@ def connect_db(db_name):
 
 
 def fetch_data_from_db(db_name, query):
-    conn = connect_db(db_name)
-    cursor = conn.cursor()
-    cursor.execute(query)
-    data = [row[0] for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-    return data
+    try:
+        # Try connecting to the database and executing the query
+        conn = connect_db(db_name)
+        cursor = conn.cursor()
+        cursor.execute(query)
+        data = [row[0] for row in cursor.fetchall()]
+        
+        # Close the cursor and connection
+        cursor.close()
+        conn.close()
+        return data
+
+    except Exception as e:
+        # Display error message in Streamlit if something goes wrong
+        st.info(f"Try clicking the refresh button above")
+        return None
 
 
 def list_files(service):
