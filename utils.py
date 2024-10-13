@@ -1,11 +1,13 @@
 import sqlite3
-import streamlit as st
 import io
+import streamlit as st
+import os
 from google.oauth2 import service_account
 # from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from config import SCOPES
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
 
 def authenticate_gdrive():
     creds = service_account.Credentials.from_service_account_info(
@@ -143,12 +145,20 @@ def to_title_case(column_values):
 def to_lower_case(column_values):
     return str(column_values).lower()
 
-# Download the db file from drive
+
+# Function to download the SQLite DB file from Google Drive
 def download_db_from_drive(service, file_id, file_name):
+    """Download a file from Google Drive."""
+    if os.path.exists(file_name):
+        st.info(f"Database '{file_name}' already exists. Skipping download.")
+        return  # Skip download if the file already exists
+
     request = service.files().get_media(fileId=file_id)
     fh = io.FileIO(file_name, 'wb')
     downloader = MediaIoBaseDownload(fh, request)
+
     done = False
     while not done:
         status, done = downloader.next_chunk()
-
+        st.write(f"Download progress: {int(status.progress() * 100)}%")
+    st.success(f"Database downloaded successfully: {file_name}")
