@@ -41,10 +41,10 @@ def main():
     local_modified_time = get_local_file_modified_time(DB_NAME)
     
     
-    if local_modified_time:
-        # st.write(f"Local file last modified: {local_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    else:
-        # st.write("Local file does not exist.")
+    # if local_modified_time:
+    #     st.write(f"Local file last modified: {local_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    # else:
+    #     st.write("Local file does not exist.")
     
     
     # Compare the modification times and download if Google Drive file is newer
