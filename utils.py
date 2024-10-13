@@ -175,3 +175,17 @@ def get_local_file_modified_time(file_path):
         return datetime.utcfromtimestamp(last_modified_time)  # Return as UTC
     else:
         return None  # If the file does not exist
+
+def list_files_in_directory(directory):
+    """List all files in the specified directory."""
+    try:
+        # List all files in the given directory
+        files = os.listdir(directory)
+        if files:
+            st.write("Files in directory:")
+            for file in files:
+                st.write(file)
+        else:
+            st.write("No files found in the directory.")
+    except Exception as e:
+        st.error(f"An error occurred while listing files: {e}")
