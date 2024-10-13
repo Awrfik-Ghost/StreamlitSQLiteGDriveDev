@@ -1,6 +1,6 @@
 import streamlit as st
 from utils import authenticate_gdrive, fetch_data_from_db, list_files, connect_db, check_existing_file, upload_db_to_drive, share_file_with_user, download_db_from_drive
-from config import DB_NAME
+from config import DB_NAME, FILE_ID
 from pandas import DataFrame
 from googleapiclient.discovery import build
 
@@ -15,7 +15,10 @@ def main():
     creds = authenticate_gdrive()
     conn = connect_db(DB_NAME)
     cursor = conn.cursor()
-    service = build('drive', 'v3', credentials=creds)   
+
+    service = build('drive', 'v3', credentials=creds)
+
+    download_db_from_drive(service, FILE_ID, DB_NAME)
 
     project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
     project = fetch_data_from_db(DB_NAME, project_query)
@@ -53,7 +56,7 @@ def main():
         if submitted:
             # Check if any fields are empty
             required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
-            if all(required_fields) and purchase_amount >= 0:
+            if all(required_fields) and (purchase_amount > 0 or paid_amount > 0):
                 cursor.execute('''
                         INSERT INTO purchases 
                         (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
@@ -91,7 +94,7 @@ def main():
         if st.button("Upload DB to Google Drive"):
             existing_file_id = check_existing_file(service, DB_NAME)
             if existing_file_id:
-                result_id = upload_db_to_drive(service, DB_NAME, existing_file_id)
+                result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
                 st.write(f"Updated existing file with ID: {result_id}")
             else:
                 result_id = upload_db_to_drive(service, DB_NAME, None)  # Create new file
