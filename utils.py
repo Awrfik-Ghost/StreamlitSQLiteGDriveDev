@@ -90,7 +90,8 @@ def upload_db_to_drive(service, db_name, file_id):
                     media_body=media
                 ).execute()
 
-                st.success("Database updated successfully!")
+                st.success("Data refreshed")
+                #st.success("Database updated successfully!")
                 #st.write(f"File ID: {file.get('id')}")
                 #st.write(f"File metadata after update: {file}")
 
