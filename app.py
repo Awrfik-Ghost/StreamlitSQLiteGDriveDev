@@ -22,7 +22,7 @@ def main():
     if st.button("List Files"):
         # Specify the directory path
         directory_path = '/mount/src/streamlitsqlitegdrivedev/'
-        
+        files = list_files_in_directory(directory_path)
         # Display the file information in Streamlit
         if files:
             st.write("Files in Directory:")
