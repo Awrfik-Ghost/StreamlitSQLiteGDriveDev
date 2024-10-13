@@ -37,7 +37,7 @@ def fetch_data_from_db(db_name, query):
 
     except sqlite3.DatabaseError:
         # Catch database-related errors
-        st.error("Try refresh button above")
+        st.info("Try refresh button above")
         return None
 
     except Exception as e:
@@ -172,7 +172,7 @@ def download_db_from_drive(service, file_id, file_name):
     done = False
     while not done:
         status, done = downloader.next_chunk()  # Download in chunks
-        st.write(f"Download progress: {int(status.progress() * 100)}%")
+        # st.write(f"Download progress: {int(status.progress() * 100)}%")
     st.success(f"Data refreshed")
 
 
