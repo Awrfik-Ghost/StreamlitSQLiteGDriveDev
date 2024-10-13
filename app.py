@@ -1,6 +1,5 @@
 import streamlit as st
-from utils import authenticate_gdrive, fetch_data_from_db, list_files, connect_db, check_existing_file, upload_db_to_drive, share_file_with_user, download_db_from_drive, get_google_drive_modified_time, get_local_file_modified_time
-from config import DB_NAME, FILE_ID
+from utils import *
 from pandas import DataFrame
 from googleapiclient.discovery import build
 import pytz
@@ -20,6 +19,11 @@ def main():
     service = build('drive', 'v3', credentials=creds)
 
     if st.button("List Files"):
+        # Specify the directory path
+        directory_path = '/mount/src/streamlitsqlitegdrivedev/'
+        
+        # Call the function to list files
+        list_files_in_directory(directory_path)
         list_files(service)    
     
     if st.button('Check the file status'):
