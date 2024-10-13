@@ -124,7 +124,7 @@ def main():
             existing_file_id = check_existing_file(service, DB_NAME)
             if existing_file_id:
                 result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
-                st.write(f"Updated existing file with ID: {result_id}")
+                print(f"Updated existing file with ID: {result_id}")
             else:
                 result_id = upload_db_to_drive(service, DB_NAME, None)  # Create new file
                 st.write(f"Created new file with ID: {result_id}")
