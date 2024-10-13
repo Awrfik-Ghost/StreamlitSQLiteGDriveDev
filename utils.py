@@ -29,15 +29,20 @@ def fetch_data_from_db(db_name, query):
         cursor = conn.cursor()
         cursor.execute(query)
         data = [row[0] for row in cursor.fetchall()]
-        
+
         # Close the cursor and connection
         cursor.close()
         conn.close()
         return data
 
+    except sqlite3.DatabaseError:
+        # Catch database-related errors
+        st.error("Try refresh button above")
+        return None
+
     except Exception as e:
-        # Display error message in Streamlit if something goes wrong
-        st.info(f"Try clicking the refresh button above")
+        # Catch any other exceptions
+        st.error("Try refresh button above")
         return None
 
 
@@ -81,7 +86,7 @@ def upload_db_to_drive(service, db_name, file_id):
             try:
                 # Attempt to retrieve the file to ensure it exists
                 service.files().get(fileId=file_id).execute()
-                #st.write("Updating the existing file...")
+                # st.write("Updating the existing file...")
 
                 # Proceed to update the file
                 file = service.files().update(
@@ -90,10 +95,10 @@ def upload_db_to_drive(service, db_name, file_id):
                     media_body=media
                 ).execute()
 
-                st.success("Data refreshed")
-                #st.success("Database updated successfully!")
-                #st.write(f"File ID: {file.get('id')}")
-                #st.write(f"File metadata after update: {file}")
+                st.success("Data saved")
+                # st.success("Database updated successfully!")
+                # st.write(f"File ID: {file.get('id')}")
+                # st.write(f"File metadata after update: {file}")
 
             except HttpError as e:
                 if e.resp.status == 404:
@@ -163,29 +168,32 @@ def download_db_from_drive(service, file_id, file_name):
     request = service.files().get_media(fileId=file_id)
     fh = io.FileIO(file_name, 'wb')  # Create a file handle for writing
     downloader = MediaIoBaseDownload(fh, request)
-    
+
     done = False
     while not done:
         status, done = downloader.next_chunk()  # Download in chunks
         st.write(f"Download progress: {int(status.progress() * 100)}%")
-    st.success(f"Database downloaded successfully: {file_name}")
+    st.success(f"Data refreshed")
+
 
 def get_google_drive_modified_time(service, file_id):
     """Fetches the last modified time of a file in Google Drive."""
     file = service.files().get(fileId=file_id, fields='modifiedTime').execute()
     modified_time = file['modifiedTime']
-    
+
     # Parse the modified time and convert it to a datetime object
     gdrive_modified_time = datetime.strptime(modified_time, '%Y-%m-%dT%H:%M:%S.%fZ')
     return gdrive_modified_time
+
 
 def get_local_file_modified_time(file_path):
     """Fetches the last modified time of a local file."""
     if os.path.exists(file_path):
         last_modified_time = os.path.getmtime(file_path)
-        return datetime.utcfromtimestamp(last_modified_time)  # Return as UTC
+        return datetime.fromtimestamp(last_modified_time)  # Return as UTC
     else:
         return None  # If the file does not exist
+
 
 def list_files_in_directory(directory):
     """Lists file names, their IDs (if applicable), and last modified datetime in the specified directory."""
@@ -200,7 +208,7 @@ def list_files_in_directory(directory):
         if os.path.isfile(file_path):
             # Get the last modified time
             last_modified_time = os.path.getmtime(file_path)
-            last_modified_datetime = datetime.utcfromtimestamp(last_modified_time)
+            last_modified_datetime = datetime.fromtimestamp(last_modified_time)
 
             # Optionally, you can generate a unique file ID (e.g., using the file's path hash)
             file_id = hash(file_path)  # Simple hash as a unique identifier
