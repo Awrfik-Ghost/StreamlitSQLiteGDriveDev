@@ -23,8 +23,13 @@ def main():
         # Specify the directory path
         directory_path = '/mount/src/streamlitsqlitegdrivedev/'
         
-        # Call the function to list files
-        list_files_in_directory(directory_path)
+        # Display the file information in Streamlit
+        if files:
+            st.write("Files in Directory:")
+            for file in files:
+                st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
+        else:
+            st.write("No files found in the specified directory.")
         list_files(service)    
     
     if st.button('Check the file status'):
