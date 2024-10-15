@@ -5,7 +5,7 @@ from config import DB_NAME, FILE_ID
 from pandas import DataFrame
 from googleapiclient.discovery import build
 
-st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide")
 
 st.title("📚 Welcome to the Expense Tracker App")
 st.sidebar.success("Navigate yourself")
