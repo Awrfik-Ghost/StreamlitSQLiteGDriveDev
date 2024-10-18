@@ -74,11 +74,16 @@ def main():
 
             if st.button("Show Expenditure for each stage"):
                 expenditure_on_each_stage = F"""
-                    SELECT s.stage as Stage, COALESCE(SUM(p.purchase_amount),"Not Yet Started") as 'Purchase_Amount'
-                    FROM stages s ON s.stage=p.stage
-                    LEFT JOIN purchases p ON s.stage=p.stage 
-                    AND p.project_id = {st.session_state['project_id_selected']}
-                    GROUP BY s.stage;
+                    SELECT 
+                        s.stage as Stage, 
+                        COALESCE(SUM(p.purchase_amount),"Not Yet Started") as 'Purchase Amount'
+                    FROM 
+                        stages s
+                    LEFT JOIN 
+                        purchases p ON p.stage = s.stage 
+                        AND p.project_id = {st.session_state['project_id_selected']}
+                    GROUP BY 
+                        s.stage;
                 """
 
                 fetch_and_display_data(expenditure_on_each_stage)
