@@ -6,5 +6,5 @@ textColor = "#262730"
 
 # Set custom sidebar names for multi-page apps
 [pages]
-"📚 Homepage" = "app.py"
-"📊 Reports" = "2_Reports.py"
+"📚_Homepage" = "app.py"
+"📊_Reports" = "2_Reports.py"

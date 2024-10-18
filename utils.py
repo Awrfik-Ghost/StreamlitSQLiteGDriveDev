@@ -1,223 +1,171 @@
-import sqlite3
-import io
 import streamlit as st
-import os
-from google.oauth2 import service_account
-# from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from config import SCOPES
-from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from datetime import datetime
+from utils import (download_db_from_drive, fetch_data_from_db, check_existing_file, upload_db_to_drive,
+                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record, fetch_and_display_data)
+from config import DB_NAME, FILE_ID
+from pandas import DataFrame
+from authlib.integrations.requests_client import OAuth2Session
+
+st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide")
+st.title("📚 Expense Tracker App")
+st.sidebar.success("Navigate yourself")
+
+# Define client ID and client secret from Google OAuth
+client_id = st.secrets['gdrive']['client_id_key']
+client_secret = st.secrets['gdrive']['client_secret_key']
+redirect_uri = "http://localhost:8501/"  # Ensure this matches the Google Cloud Console settings
+
+# Google OAuth 2.0 configuration
+authorize_url = "https://accounts.google.com/o/oauth2/auth"
+token_url = "https://oauth2.googleapis.com/token"
+userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+scope = "openid email profile"
+
+# Initialize OAuth session
+oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri, scope=scope)
+
+access_list = ['awrfikghost@gmail.com']
 
 
-def authenticate_gdrive():
-    creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gdrive"],
-        scopes=SCOPES
-    )
-    return creds
+def main():
+    st.header("Expenses Data Entry")
+    service = establish_connections()
+    conn, cursor = db_cursor()
 
-
-def connect_db(db_name):
-    return sqlite3.connect(db_name)
-
-
-def fetch_data_from_db(db_name, query):
-    try:
-        # Try connecting to the database and executing the query
-        conn = connect_db(db_name)
-        cursor = conn.cursor()
-        cursor.execute(query)
-        data = [row[0] for row in cursor.fetchall()]
-
-        # Close the cursor and connection
-        cursor.close()
-        conn.close()
-        return data
-
-    except sqlite3.DatabaseError:
-        # Catch database-related errors
-        st.info("Try refresh button above")
-        return None
-
-    except Exception as e:
-        # Catch any other exceptions
-        st.error("Try refresh button above")
-        return None
-
-
-def list_files(service):
-    """Lists the files in Google Drive to help verify file IDs."""
-    try:
-        results = service.files().list(pageSize=10, fields="nextPageToken, files(id, name)").execute()
-        items = results.get('files', [])
-        if not items:
-            st.write("No files found.")
-        else:
-            st.write("Files:")
-            for item in items:
-                st.write(f"{item['name']} ({item['id']})")
-    except HttpError as error:
-        st.error(f"An error occurred while listing files: {error}")
-
-
-def upload_db_to_drive(service, db_name, file_id):
-    """Uploads or updates the SQLite database file to Google Drive.
-
-    Args:
-        service: Authenticated Google Drive service instance.
-        db_name: Name of the database file to upload.
-        file_id: Optional; ID of the file to update. If None, a new file will be created.
-
-    Returns:
-        The ID of the uploaded or updated file.
-    """
-    try:
-        # Define the metadata for the file (with correct MIME type for SQLite)
-        file_metadata = {
-            'name': db_name,
-            'mimeType': 'application/x-sqlite3'  # SQLite file MIME type
-        }
-
-        # Create media file upload
-        media = MediaFileUpload(db_name, mimetype='application/x-sqlite3')
-
-        if file_id:  # If updating an existing file
-            try:
-                # Attempt to retrieve the file to ensure it exists
-                service.files().get(fileId=file_id).execute()
-                # st.write("Updating the existing file...")
-
-                # Proceed to update the file
-                file = service.files().update(
-                    fileId=file_id,
-                    body=file_metadata,
-                    media_body=media
-                ).execute()
-
-                st.success("Data saved")
-                # st.success("Database updated successfully!")
-                # st.write(f"File ID: {file.get('id')}")
-                # st.write(f"File metadata after update: {file}")
-
-            except HttpError as e:
-                if e.resp.status == 404:
-                    st.error("File not found. Please check the file ID.")
-                    return None
-                else:
-                    st.error(f"An error occurred: {e}")
-                    return None
-        else:  # If creating a new file
-            # Create the file on Google Drive
-            st.write("Creating a new file...")
-            file = service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id'
-            ).execute()
-            st.success(f"Database uploaded successfully! File ID: {file.get('id')}")
-            st.write(f"File metadata after creation: {file}{db_name}")
-
-        return file.get('id')  # Return the file ID
-
-    except HttpError as error:
-        st.error(f"An error occurred during upload: {error}")
-        return None
-
-
-def share_file_with_user(service, file_id, user_email):
-    """Shares the uploaded file with a specified user."""
-    try:
-        # Permission settings: granting view access to your email
-        permission = {
-            'type': 'user',
-            'role': 'writer',  # Can change to 'reader' for read-only
-            'emailAddress': user_email
-        }
-        service.permissions().create(fileId=file_id, body=permission).execute()
-        st.success(f"File shared successfully with {user_email}")
-    except HttpError as error:
-        st.error(f"An error occurred while sharing the file: {error}")
-
-
-def check_existing_file(service, file_name):
-    """Check if a file with the given name already exists in Google Drive."""
-    try:
-        results = service.files().list(q=f"name='{file_name}'", fields="files(id, name)").execute()
-        items = results.get('files', [])
-        if items:
-            return items[0]['id']  # Return the ID of the first match
-        return None
-    except HttpError as error:
-        st.error(f"An error occurred while checking for existing files: {error}")
-        return None
-
-
-# Display all purchases data for each
-def to_title_case(column_values):
-    return [str(value).title() for value in column_values]
-
-
-# Display all purchases data for each
-def to_lower_case(column_values):
-    return str(column_values).lower()
-
-
-def download_db_from_drive(service, file_id, file_name):
-    """Download a file from Google Drive."""
-    request = service.files().get_media(fileId=file_id)
-    fh = io.FileIO(file_name, 'wb')  # Create a file handle for writing
-    downloader = MediaIoBaseDownload(fh, request)
-
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()  # Download in chunks
-        # st.write(f"Download progress: {int(status.progress() * 100)}%")
-    st.success(f"Data refreshed")
-
-
-def get_google_drive_modified_time(service, file_id):
-    """Fetches the last modified time of a file in Google Drive."""
-    file = service.files().get(fileId=file_id, fields='modifiedTime').execute()
-    modified_time = file['modifiedTime']
-
-    # Parse the modified time and convert it to a datetime object
-    gdrive_modified_time = datetime.strptime(modified_time, '%Y-%m-%dT%H:%M:%S.%fZ')
-    return gdrive_modified_time
-
-
-def get_local_file_modified_time(file_path):
-    """Fetches the last modified time of a local file."""
-    if os.path.exists(file_path):
-        last_modified_time = os.path.getmtime(file_path)
-        return datetime.fromtimestamp(last_modified_time)  # Return as UTC
+    # Check for existing token in session state
+    if "token" not in st.session_state:
+        # Redirect to Google OAuth login
+        authorization_url, state = oauth.create_authorization_url(authorize_url)
+        st.link_button("Login with Google", url=authorization_url)
     else:
-        return None  # If the file does not exist
+        # Load the token
+        token = st.session_state["token"]
+        oauth.token = token
+
+        # Fetch user info from Google
+        response = oauth.get(userinfo_url)
+
+        if response.status_code == 200:
+            userinfo = response.json()
+            user_email = userinfo.get("email")
+            user_name = userinfo.get("name")
+            if user_email in access_list:
+                # st.success(f"Logged in as: {user_email}")
+                st.success(f"Hi {user_name}!!, 📚 Welcome to Expense Tracker App")
+                # st.write(f"{userinfo}")
+                # Continue to the main functionality
+                show_main_functionality(service, conn, cursor)
+            else:
+                st.error("You don't have access 😥!!")
+        else:
+            st.error("Failed to recognize the user 😥!!")
+            # st.error("Failed to fetch user information. Status Code: " + str(response.status_code))
+
+    # Handle the authorization code if present
+    code = st.query_params.get("code")
+    if code and "token" not in st.session_state:
+        try:
+            # Fetch the token using the code
+            token = oauth.fetch_token(token_url, code=code, grant_type="authorization_code")
+            st.session_state["token"] = token
+            st.success("Authentication completed successfully.")
+            st.rerun()  # Refresh the app to show user info
+        except Exception as e:
+            st.error(f"An error occurred during authentication")
 
 
-def list_files_in_directory(directory):
-    """Lists file names, their IDs (if applicable), and last modified datetime in the specified directory."""
-    # Initialize a list to hold the file information
-    file_info = []
+def show_main_functionality(service,conn,cursor):
+    # Your existing functionality for handling database operations, file uploads, etc.
+    st.write("Entering main functionality...")
 
-    # Iterate through the files in the specified directory
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
+    if st.button("Refresh"):
+        download_db_from_drive(service, FILE_ID, DB_NAME)
 
-        # Check if it's a file
-        if os.path.isfile(file_path):
-            # Get the last modified time
-            last_modified_time = os.path.getmtime(file_path)
-            last_modified_datetime = datetime.fromtimestamp(last_modified_time)
+    # Fetch projects and display them
+    project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
+    project = fetch_data_from_db(project_query)
+    if project:
+        project_with_blank = ["Project Names with Project ID"] + project
+        project_selection = st.selectbox("Select the project:", project_with_blank)
+        project_id_selected = project_selection.split(' - ')[0]
 
-            # Optionally, you can generate a unique file ID (e.g., using the file's path hash)
-            file_id = hash(file_path)  # Simple hash as a unique identifier
+        if project_selection != "Project Names with Project ID":
+            st.success(f"You have selected the project: {project_selection}")
+            st.session_state['project_id_selected'] = project_id_selected
+            project_id = st.session_state['project_id_selected']
 
-            # Append the file info as a dictionary
-            file_info.append({
-                'file_name': filename,
-                'file_id': file_id,
-                'last_modified': last_modified_datetime.strftime('%Y-%m-%d %H:%M:%S')
-            })
+            store_session_state("project_id_selected", project_id_selected)
+            store_session_state("project_selection", project_selection)
 
-    return file_info
+            categories = fetch_data_from_db('SELECT category FROM category')
+            payment_options = fetch_data_from_db('SELECT mode_of_payment FROM mode_of_payment')
+            stage_options = fetch_data_from_db('SELECT stage FROM stages')
+
+            # Form for user data input
+            with st.form("purchases_data_entry"):
+                item_name = st.text_input("Enter the item name:")
+                item_qty = st.number_input("Enter the item quantity:", min_value=0, max_value=1000000)
+                stage = st.selectbox("Select stage:", stage_options)
+                category = st.selectbox("Select category:", categories)
+                vendor = st.text_input("Enter the vendor name:")
+                date = st.date_input("Select the date:")
+                purchase_amount = st.number_input("Enter the purchase amount:", min_value=0, max_value=1000000)
+                mode_of_payment = st.selectbox("Select mode of payment:", payment_options)
+                paid_amount = st.number_input("Enter the paid amount:", min_value=0, max_value=1000000)
+                notes = st.text_input("Add notes if necessary:")
+                submitted = st.form_submit_button("Submit")
+
+            if submitted:
+                # Check if any fields are empty
+                required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
+                if all(required_fields) and (purchase_amount > 0 or paid_amount > 0):
+                    cursor.execute('''INSERT INTO purchases 
+                                    (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                   (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
+                    conn.commit()
+                    st.success("Data submitted successfully!")
+                else:
+                    st.error("All fields are mandatory! Please fill in all fields.")
+
+            if st.button("View Purchases"):
+                cursor.execute(f'''
+                    SELECT 
+                        purchase_id as 'Purchase ID', 
+                        item_name as 'Item Name', 
+                        item_qty as 'Item Quantity', 
+                        vendor as Vendor, 
+                        stage as Stage, 
+                        category as Category,
+                        date as Date, 
+                        purchase_amount as 'Purchase Amount', 
+                        mode_of_payment as 'Mode of Payment',
+                        paid_amount as 'Paid Amount',
+                        notes as Notes
+                        FROM purchases
+                        WHERE project_id = {project_id}    
+                ''')
+                data = cursor.fetchall()
+                if data:
+                    results_df = DataFrame(data, columns=[desc[0] for desc in cursor.description])
+                    st.dataframe(results_df)
+                else:
+                    st.write("No data found for the selected criteria.")
+
+            delete_purchase_record()
+
+            if st.button("Save"):
+                existing_file_id = check_existing_file(service, DB_NAME)
+                if existing_file_id:
+                    result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
+                    print(f"Updated existing file with ID: {result_id}")
+                else:
+                    result_id = upload_db_to_drive(service, DB_NAME, None)  # Create new file
+                    st.write(f"Created new file with ID: {result_id}")
+
+                # Share the file with your email
+                if result_id:
+                    share_file_with_user(service, result_id, "awrfikghost@gmail.com")
+
+
+if __name__ == "__main__":
+    main()
