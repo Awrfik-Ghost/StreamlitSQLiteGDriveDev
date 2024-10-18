@@ -1,10 +1,10 @@
 [theme]
-primaryColor = "#F63366"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+primaryColor = "#FF4B4B"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#262730"
+textColor = "#FAFAFA"
 
 # Set custom sidebar names for multi-page apps
 [pages]
-"📚_Homepage" = "app.py"
-"📊_Reports" = "2_Reports.py"
+"Homepage" = "app.py"
+"Reports" = "2_Reports.py"
