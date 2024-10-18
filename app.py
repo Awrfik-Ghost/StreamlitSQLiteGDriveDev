@@ -12,7 +12,7 @@ st.sidebar.success("Navigate yourself")
 # Define client ID and client secret from Google OAuth
 client_id = st.secrets['gdrive']['client_id_key']
 client_secret = st.secrets['gdrive']['client_secret_key']
-redirect_uri = "http://localhost:8501/"  # Ensure this matches the Google Cloud Console settings
+redirect_uri = st.secrets['gdrive']['redirect_uri']  # Ensure this matches the Google Cloud Console settings
 
 # Google OAuth 2.0 configuration
 authorize_url = "https://accounts.google.com/o/oauth2/auth"
