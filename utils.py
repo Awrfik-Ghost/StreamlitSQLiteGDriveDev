@@ -437,9 +437,9 @@ def get_purchase_amounts():
         # Highlight Total and Percentage rows
         def highlight_rows(row):
             if row['Stage'] == 'Total':
-                return ['background-color: lightblue'] * len(row)
+                return ['background-color: #FF4B4B'] * len(row)
             elif row['Stage'] == 'Percentage':
-                return ['background-color: lightyellow'] * len(row)
+                return ['background-color: #4B0082'] * len(row)
             else:
                 return [''] * len(row)
 
@@ -452,6 +452,165 @@ def get_purchase_amounts():
     except sqlite3.Error as err:
         st.error(f"Database Error: {err}")
 
+
+def purchase_amounts():
+    # Establish the database connection
+    conn, cursor = db_cursor()
+
+    try:
+        # Fetch distinct categories from the category table
+        cursor.execute("SELECT category FROM category")
+        categories = cursor.fetchall()
+
+        # Fetch distinct stages from the stages table
+        cursor.execute("SELECT stage FROM stages")
+        stages = cursor.fetchall()
+
+        # Check if categories or stages exist
+        if not categories or not stages:
+            st.error("No categories or stages found.")
+            return
+
+        # Create a list of stages and categories
+        stages_list = [stage[0] for stage in stages]
+        categories_list = [category[0] for category in categories]
+
+        # Build SQL query to get purchase amounts per category and stage
+        sql_query = "SELECT p.category as Category"
+
+        # Add dynamic stage columns
+        for stage in stages_list:
+            sql_query += f", COALESCE(SUM(CASE WHEN p.stage = '{stage}' THEN p.purchase_amount ELSE 0 END), 0) AS '{stage}'"
+
+        # Add grand total for each category
+        sql_query += ", COALESCE(SUM(p.purchase_amount), 0) AS 'Total'"
+
+        # Complete the SQL query
+        sql_query += " FROM purchases p GROUP BY p.category"
+
+        # Execute the main SQL query
+        cursor.execute(sql_query)
+        results = cursor.fetchall()
+
+        # Convert the results into a pandas DataFrame
+        column_names = ['Category'] + stages_list + ['Total']
+        df = pd.DataFrame(results, columns=column_names)
+
+        # Ensure all categories are included, even if they have no purchases
+        all_categories_df = pd.DataFrame(categories_list, columns=['Category'])
+        df = pd.merge(all_categories_df, df, on='Category', how='left').fillna(0)
+
+        # Calculate the grand total for each stage (column total)
+        grand_total_row = df.sum(numeric_only=True).to_frame().T
+        grand_total_row.insert(0, 'Category', 'Grand Total')
+
+        # Append the grand total row to the DataFrame
+        df = pd.concat([df, grand_total_row], ignore_index=True)
+
+        # Calculate percentage for each category based on the grand total
+        grand_total = grand_total_row['Total'].iloc[0]
+
+        if grand_total > 0:
+            df['Percentage'] = (df['Total'] / grand_total * 100).round(2)
+        else:
+            df['Percentage'] = 0
+
+        # Calculate the percentage for each stage (column percentage)
+        percentage_row = pd.DataFrame(columns=df.columns)
+        percentage_row.loc[0] = ['Percentage'] + [
+            (df[stage].iloc[:-1].sum() / grand_total * 100).round(2) if grand_total > 0 else 0
+            for stage in stages_list
+        ] + [100, '']
+
+        # Append the percentage row to the DataFrame
+        df = pd.concat([df, percentage_row], ignore_index=True)
+
+        # Ensure numeric columns are correctly typed
+        for col in df.columns[1:]:  # All columns except 'Category'
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Create a copy for formatted display
+        formatted_df = df.copy()
+
+        # Format all numeric columns (except 'Category') as currency
+        for col in formatted_df.columns[1:-2]:  # All columns except 'Category', 'Total', and 'Percentage'
+            formatted_df[col] = formatted_df[col].apply(format_currency)
+
+        # Format Total column
+        formatted_df['Total'] = formatted_df['Total'].apply(format_currency)
+
+        # Format Percentage column (ensure no currency formatting)
+        formatted_df['Percentage'] = formatted_df['Percentage'].apply(format_percentage)
+
+        grand_total_col = formatted_df.columns[-2]
+        # Change the dtype of the 'Grand_Total' column to 'object' to avoid dtype incompatibility warning
+        formatted_df[grand_total_col] = formatted_df[grand_total_col].astype('object')
+
+        for i in range(len(formatted_df) - 1):  # Loop through all rows except the last one
+            formatted_df.at[i, grand_total_col] = format_currency(df.at[i, grand_total_col])
+
+        # Format the last row (percentage row) correctly
+        last_row_index = formatted_df.index[-1]  # Index of the percentage row
+        for col in formatted_df.columns[1:]:  # All columns except 'stage'
+            if col != 'Stage':
+                raw_value = df.at[last_row_index, col]  # Get the raw numeric value
+                formatted_df.at[last_row_index, col] = format_percentage(raw_value)
+
+
+        def highlight_rows(row):
+            styles = [''] * len(row)
+
+            # Highlight entire row for Grand Total
+            if row['Category'] == 'Grand Total':
+                styles = ['background-color: #DAA520'] * len(row)  # Gold for Grand Total
+            # Highlight entire row for Percentage
+            elif row['Category'] == 'Percentage':
+                styles = ['background-color: #FF0000'] * len(row)  # Indigo for Percentage
+
+            return styles
+
+        def highlight_last_column(s):
+            # Create a default style
+            styles = pd.DataFrame('', index=s.index, columns=s.columns)
+
+            styles.iloc[:, -1] = ['background-color: #FF0000']
+            styles.iloc[:, -2] = ['background-color: #DAA520']
+            return styles
+
+        # Function to highlight the last value of the second-to-last column
+        def highlight_last_value(s):
+            # Create a default style DataFrame with empty strings
+            styles = pd.DataFrame('', index=s.index, columns=s.columns)
+
+            # Get the index of the last row
+            last_row_index = s.index[-1]
+
+            # Apply color to the last value of the second-to-last column
+            styles.iloc[last_row_index, -2] = 'background-color: #FF0000'  # Change color (Tomato)
+
+            return styles
+
+        # Apply row highlighting
+        styled_df = formatted_df.style.apply(highlight_rows, axis=1)
+        styled_df = styled_df.apply(highlight_last_column, axis=None)
+        styled_df = styled_df.apply(highlight_last_value, axis=None)
+
+        # Display the styled DataFrame in Streamlit
+        st.dataframe(styled_df, use_container_width=True)
+
+    except sqlite3.Error as err:
+        st.error(f"Database Error: {err}")
+
+
+
+
+
+
+
+
+# ----------------------------------------------------------------------------------------------------
+# Delete Record Function
+# ----------------------------------------------------------------------------------------------------
 
 def delete_purchase_record():
     # Establish the database connection
