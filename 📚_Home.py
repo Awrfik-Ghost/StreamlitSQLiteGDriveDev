@@ -1,6 +1,6 @@
 import streamlit as st
 from utils import (download_db_from_drive, fetch_data_from_db, check_existing_file, upload_db_to_drive,
-                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record, fetch_and_display_data)
+                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record)
 from config import DB_NAME, FILE_ID
 from pandas import DataFrame
 from authlib.integrations.requests_client import OAuth2Session
@@ -108,16 +108,16 @@ def show_main_functionality(service,conn,cursor):
                 category = st.selectbox("Select category:", categories)
                 vendor = st.text_input("Enter the vendor name:")
                 date = st.date_input("Select the date:")
-                purchase_amount = st.number_input("Enter the purchase amount:", min_value=0, max_value=1000000)
+                purchase_amount = st.number_input("Enter the purchase amount:", min_value=-10000, max_value=1000000, value = 0)
                 mode_of_payment = st.selectbox("Select mode of payment:", payment_options)
-                paid_amount = st.number_input("Enter the paid amount:", min_value=0, max_value=1000000)
+                paid_amount = st.number_input("Enter the paid amount:", min_value=-10000, max_value=1000000, value = 0)
                 notes = st.text_input("Add notes if necessary:")
                 submitted = st.form_submit_button("Submit")
 
             if submitted:
                 # Check if any fields are empty
                 required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
-                if all(required_fields) and (purchase_amount > 0 or paid_amount > 0):
+                if all(required_fields) and (purchase_amount > -10000 or paid_amount > 0):
                     cursor.execute('''INSERT INTO purchases 
                                     (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
