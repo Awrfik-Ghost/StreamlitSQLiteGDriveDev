@@ -1,5 +1,6 @@
 import streamlit as st
-from utils import to_title_case, fetch_data_from_db, to_lower_case, fetch_and_display_data, get_purchase_amounts, purchase_amounts
+from utils import (to_title_case, fetch_data_from_db, to_lower_case,
+                   fetch_and_display_data, expenses_pivot, purchase_amounts, format_currency)
 
 
 def main():
@@ -60,7 +61,12 @@ def main():
                 expenditure_on_each_category = f"""
                     SELECT 
                         c.category AS Category, 
-                        COALESCE(SUM(p.purchase_amount), "Not Yet Started") AS 'Purchase Amount'
+                        COALESCE(SUM(p.purchase_amount), "Not Yet Started") AS 'Purchase Amount',
+                        COALESCE(SUM(p.paid_amount), "Not Yet Started") AS 'Paid Amount',
+                        CASE
+                        WHEN SUM(p.purchase_amount) IS NULL AND SUM(p.paid_amount) IS NULL THEN 'Not Yet Started'
+                        ELSE COALESCE(SUM(p.purchase_amount), 0) - COALESCE(SUM(p.paid_amount), 0)
+                        END AS "Difference"
                     FROM 
                         category c
                     LEFT JOIN 
@@ -76,7 +82,12 @@ def main():
                 expenditure_on_each_stage = F"""
                     SELECT 
                         s.stage as Stage, 
-                        COALESCE(SUM(p.purchase_amount),"Not Yet Started") as 'Purchase Amount'
+                        COALESCE(SUM(p.purchase_amount),"Not Yet Started") as 'Purchase Amount',
+                        COALESCE(SUM(p.paid_amount), "Not Yet Started") AS 'Paid Amount',
+                        CASE
+                        WHEN SUM(p.purchase_amount) IS NULL AND SUM(p.paid_amount) IS NULL THEN 'Not Yet Started'
+                        ELSE COALESCE(SUM(p.purchase_amount), 0) - COALESCE(SUM(p.paid_amount), 0)
+                        END AS "Difference"
                     FROM 
                         stages s
                     LEFT JOIN 
@@ -88,8 +99,9 @@ def main():
 
                 fetch_and_display_data(expenditure_on_each_stage)
 
+
             if st.button('Report'):
-                get_purchase_amounts()
+                expenses_pivot()
 
     except Exception as e:
         st.warning(f"Please select the project in Home Page !!")
