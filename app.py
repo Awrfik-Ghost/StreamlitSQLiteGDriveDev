@@ -33,7 +33,7 @@ def main():
     st.write(f"Current Redirect URI: {redirect_uri}")
     # Replace this with the actual redirect URI you have set in Google Cloud Console
     authorized_redirect_uri = "https://trackingexpensesdev.streamlit.app"  
-    st.write(f"Expected Redirect URI from Google Console: {your_authorized_redirect_uri}")
+    st.write(f"Expected Redirect URI from Google Console: {authorized_redirect_uri}")
 
 
     # Check for existing token in session state
