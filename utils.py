@@ -1,171 +1,499 @@
+import sqlite3
+import io
 import streamlit as st
-from utils import (download_db_from_drive, fetch_data_from_db, check_existing_file, upload_db_to_drive,
-                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record, fetch_and_display_data)
-from config import DB_NAME, FILE_ID
-from pandas import DataFrame
-from authlib.integrations.requests_client import OAuth2Session
-
-st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide")
-st.title("📚 Expense Tracker App")
-st.sidebar.success("Navigate yourself")
-
-# Define client ID and client secret from Google OAuth
-client_id = st.secrets['gdrive']['client_id_key']
-client_secret = st.secrets['gdrive']['client_secret_key']
-redirect_uri = "http://localhost:8501/"  # Ensure this matches the Google Cloud Console settings
-
-# Google OAuth 2.0 configuration
-authorize_url = "https://accounts.google.com/o/oauth2/auth"
-token_url = "https://oauth2.googleapis.com/token"
-userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
-scope = "openid email profile"
-
-# Initialize OAuth session
-oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri, scope=scope)
-
-access_list = ['awrfikghost@gmail.com']
+import os
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from config import SCOPES
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from datetime import datetime
+import pandas as pd
+from config import DB_NAME
 
 
-def main():
-    st.header("Expenses Data Entry")
-    service = establish_connections()
+# ----------------------------------------------------------------------------------------------------
+# Google Drive Connection
+# ----------------------------------------------------------------------------------------------------
+
+def authenticate_gdrive():
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gdrive"],
+        scopes=SCOPES
+    )
+    return creds
+
+
+def establish_connections():
+    """
+    Establishes a connection to Google Drive.
+
+    Returns:
+        tuple: A tuple containing the Google Drive service.
+    """
+    try:
+        # Authenticate and create Google Drive service
+        creds = authenticate_gdrive()  # Replace with your actual authentication function
+        service = build('drive', 'v3', credentials=creds)
+        return service
+
+    except Exception as e:
+        # Handle exceptions and provide feedback
+        st.error(f"Error establishing connections: {e}")
+        return None, None, None
+
+# ----------------------------------------------------------------------------------------------------
+# Database File Connection
+# ----------------------------------------------------------------------------------------------------
+
+
+def connect_db(db_name):
+    return sqlite3.connect(db_name)
+
+
+def db_cursor():
+    # Try connecting to the database and executing the query
+    connection = connect_db(DB_NAME)
+    conn_cursor = connection.cursor()
+    return connection, conn_cursor
+
+
+def list_files(service):
+    """Lists the files in Google Drive to help verify file IDs."""
+    try:
+        results = service.files().list(pageSize=10, fields="nextPageToken, files(id, name)").execute()
+        items = results.get('files', [])
+        if not items:
+            st.write("No files found.")
+        else:
+            st.write("Files:")
+            for item in items:
+                st.write(f"{item['name']} ({item['id']})")
+    except HttpError as error:
+        st.error(f"An error occurred while listing files: {error}")
+
+
+def upload_db_to_drive(service, db_name, file_id):
+    """Uploads or updates the SQLite database file to Google Drive.
+
+    Args:
+        service: Authenticated Google Drive service instance.
+        db_name: Name of the database file to upload.
+        file_id: Optional; ID of the file to update. If None, a new file will be created.
+
+    Returns:
+        The ID of the uploaded or updated file.
+    """
+    try:
+        # Define the metadata for the file (with correct MIME type for SQLite)
+        file_metadata = {
+            'name': db_name,
+            'mimeType': 'application/x-sqlite3'  # SQLite file MIME type
+        }
+
+        # Create media file upload
+        media = MediaFileUpload(db_name, mimetype='application/x-sqlite3')
+
+        if file_id:  # If updating an existing file
+            try:
+                # Attempt to retrieve the file to ensure it exists
+                service.files().get(fileId=file_id).execute()
+                # st.write("Updating the existing file...")
+
+                # Proceed to update the file
+                file = service.files().update(
+                    fileId=file_id,
+                    body=file_metadata,
+                    media_body=media
+                ).execute()
+
+                st.success("Data saved")
+                # st.success("Database updated successfully!")
+                # st.write(f"File ID: {file.get('id')}")
+                # st.write(f"File metadata after update: {file}")
+
+            except HttpError as e:
+                if e.resp.status == 404:
+                    st.error("File not found. Please check the file ID.")
+                    return None
+                else:
+                    st.error(f"An error occurred: {e}")
+                    return None
+        else:  # If creating a new file
+            # Create the file on Google Drive
+            st.write("Creating a new file...")
+            file = service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id'
+            ).execute()
+            st.success(f"Database uploaded successfully! File ID: {file.get('id')}")
+            st.write(f"File metadata after creation: {file}{db_name}")
+
+        return file.get('id')  # Return the file ID
+
+    except HttpError as error:
+        st.error(f"An error occurred during upload: {error}")
+        return None
+
+
+def share_file_with_user(service, file_id, user_email):
+    """Shares the uploaded file with a specified user."""
+    try:
+        # Permission settings: granting view access to your email
+        permission = {
+            'type': 'user',
+            'role': 'writer',  # Can change to 'reader' for read-only
+            'emailAddress': user_email
+        }
+        service.permissions().create(fileId=file_id, body=permission).execute()
+        st.success(f"File shared successfully with {user_email}")
+    except HttpError as error:
+        st.error(f"An error occurred while sharing the file: {error}")
+
+
+def check_existing_file(service, file_name):
+    """Check if a file with the given name already exists in Google Drive."""
+    try:
+        results = service.files().list(q=f"name='{file_name}'", fields="files(id, name)").execute()
+        items = results.get('files', [])
+        if items:
+            return items[0]['id']  # Return the ID of the first match
+        return None
+    except HttpError as error:
+        st.error(f"An error occurred while checking for existing files: {error}")
+        return None
+
+
+def download_db_from_drive(service, file_id, file_name):
+    """Download a file from Google Drive."""
+    request = service.files().get_media(fileId=file_id)
+    fh = io.FileIO(file_name, 'wb')  # Create a file handle for writing
+    downloader = MediaIoBaseDownload(fh, request)
+
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()  # Download in chunks
+        # st.write(f"Download progress: {int(status.progress() * 100)}%")
+    st.success(f"Data refreshed")
+
+# ----------------------------------------------------------------------------------------------------
+# Fetching data and displaying data from Database
+# ----------------------------------------------------------------------------------------------------
+
+
+def fetch_data_from_db(query):
+    try:
+        # Try connecting to the database and executing the query
+        conn, cursor = db_cursor()
+        row = cursor.execute(query)
+        data = [row[0] for row in cursor.fetchall()]
+        return data
+
+    except sqlite3.DatabaseError:
+        # Catch database-related errors
+        st.info("Try refresh button above")
+        return None
+
+    except Exception as e:
+        # Catch any other exceptions
+        st.error("Try refresh button above")
+        return None
+
+
+def fetch_and_display_data(query):
+    """
+    Execute the given SQL query, fetch the results, and display them in a Streamlit app.
+    Handles any SQL syntax errors and displays appropriate messages.
+
+    Args:
+        query (str): The SQL query to be executed.
+    """
+    try:
+        # Execute the SQL query
+        connection, cursor = db_cursor()
+        cursor.execute(query)
+
+        # Fetch all rows from the executed query
+        results = cursor.fetchall()
+
+        # Check if there are any results
+        if results:
+            # Convert rows to a pandas DataFrame for better display
+            results_df = pd.DataFrame(results, columns=[desc[0] for desc in cursor.description])
+
+            # Display the DataFrame in tabular format
+            st.dataframe(results_df)  # You can also use st.table(df) for a static table
+        else:
+            # Inform the user if no data was found
+            st.warning("No data found for the selected criteria.")
+
+    except sqlite3.OperationalError as err:
+        # Catch and handle specific MySQL errors
+        st.warning("Please check if you've selected a valid project")
+
+    except Exception as e:
+        # Catch any other exceptions
+        st.error(f"An unexpected error occurred: {e}")
+
+
+# Function to store the selected value in session state
+def store_session_state(key, value):
+    if key == 'project_selection' and value == "Project Names with Project ID" or value == 'Null' or value == '':
+        st.warning("Please select a valid project")
+    else:
+        st.session_state[key] = value
+
+
+# ----------------------------------------------------------------------------------------------------
+# Formatting data values
+# ----------------------------------------------------------------------------------------------------
+
+# Display all purchases data for each
+def to_title_case(column_values):
+    return [str(value).title() for value in column_values]
+
+
+# Display all purchases data for each
+def to_lower_case(column_values):
+    return str(column_values).lower()
+
+
+def format_currency(value):
+    """Format value as Indian Rupees with commas."""
+    if isinstance(value, (int, float)):
+        return f"₹{value:,.2f}"
+    return value
+
+
+def format_percentage(value):
+    """Format value as a percentage."""
+    if isinstance(value, (int, float)):
+        return f"{value:.2f}%"
+    return value
+
+
+# ----------------------------------------------------------------------------------------------------
+# Local file and GDrive file modified time
+# ----------------------------------------------------------------------------------------------------
+
+
+def get_google_drive_modified_time(service, file_id):
+    """Fetches the last modified time of a file in Google Drive."""
+    file = service.files().get(fileId=file_id, fields='modifiedTime').execute()
+    modified_time = file['modifiedTime']
+
+    # Parse the modified time and convert it to a datetime object
+    gdrive_modified_time = datetime.strptime(modified_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+    return gdrive_modified_time
+
+
+def get_local_file_modified_time(file_path):
+    """Fetches the last modified time of a local file."""
+    if os.path.exists(file_path):
+        last_modified_time = os.path.getmtime(file_path)
+        return datetime.fromtimestamp(last_modified_time)  # Return as UTC
+    else:
+        return None  # If the file does not exist
+
+
+def list_files_in_directory(directory):
+    """Lists file names, their IDs (if applicable), and last modified datetime in the specified directory."""
+    # Initialize a list to hold the file information
+    file_info = []
+
+    # Iterate through the files in the specified directory
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+
+        # Check if it's a file
+        if os.path.isfile(file_path):
+            # Get the last modified time
+            last_modified_time = os.path.getmtime(file_path)
+            last_modified_datetime = datetime.fromtimestamp(last_modified_time)
+
+            # Optionally, you can generate a unique file ID (e.g., using the file's path hash)
+            file_id = hash(file_path)  # Simple hash as a unique identifier
+
+            # Append the file info as a dictionary
+            file_info.append({
+                'file_name': filename,
+                'file_id': file_id,
+                'last_modified': last_modified_datetime.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+    return file_info
+
+
+# ----------------------------------------------------------------------------------------------------
+# Overall Expenses report
+# ----------------------------------------------------------------------------------------------------
+
+def get_purchase_amounts():
+    # Establish the database connection
     conn, cursor = db_cursor()
 
-    # Check for existing token in session state
-    if "token" not in st.session_state:
-        # Redirect to Google OAuth login
-        authorization_url, state = oauth.create_authorization_url(authorize_url)
-        st.link_button("Login with Google", url=authorization_url)
-    else:
-        # Load the token
-        token = st.session_state["token"]
-        oauth.token = token
+    try:
+        # Fetch distinct categories from the category table
+        cursor.execute("SELECT category FROM category")
+        categories = cursor.fetchall()
 
-        # Fetch user info from Google
-        response = oauth.get(userinfo_url)
+        # Check if categories exist
+        if not categories:
+            st.error("No categories found.")
+            return
 
-        if response.status_code == 200:
-            userinfo = response.json()
-            user_email = userinfo.get("email")
-            user_name = userinfo.get("name")
-            if user_email in access_list:
-                # st.success(f"Logged in as: {user_email}")
-                st.success(f"Hi {user_name}!!, 📚 Welcome to Expense Tracker App")
-                # st.write(f"{userinfo}")
-                # Continue to the main functionality
-                show_main_functionality(service, conn, cursor)
+        # Start building the SQL query for each stage and category
+        sql_query = "SELECT stage as Stage"
+
+        # Add dynamic category columns to the SQL query
+        for (category,) in categories:
+            sql_query += f", COALESCE(SUM(CASE WHEN p.category = '{category}' THEN p.purchase_amount ELSE 0 END), 0) AS '{category}'"
+
+        # Add grand total column for each stage
+        sql_query += ", COALESCE(SUM(p.purchase_amount), 0) AS 'Purchase Amount'"
+
+        # Complete the main SQL query
+        sql_query += " FROM purchases p GROUP BY stage"
+
+        # Start building the UNION query for totals
+        union_query = " UNION ALL SELECT 'Total'"
+
+        # Add totals for each category
+        for (category,) in categories:
+            union_query += f", COALESCE(SUM(CASE WHEN p.category = '{category}' THEN p.purchase_amount ELSE 0 END), 0)"
+
+        # Add grand total
+        union_query += ", COALESCE(SUM(p.purchase_amount), 0) FROM purchases p"
+
+        # Add the row for percentage
+        percentage_query = " UNION ALL SELECT 'Percentage'"
+
+        # First, fetch the grand total to use for percentage calculation
+        cursor.execute("SELECT COALESCE(SUM(purchase_amount), 0) FROM purchases")
+        grand_total = cursor.fetchone()[0]
+
+        # Check if grand total is fetched
+        if grand_total is None:
+            st.error("Failed to fetch grand total.")
+            return
+
+        # Calculate percentage for each category and grand total
+        for (category,) in categories:
+            percentage_query += f", CASE WHEN {grand_total} > 0 THEN ROUND(100 * SUM(CASE WHEN p.category = '{category}' THEN p.purchase_amount ELSE 0 END) / {grand_total}, 2) ELSE 0 END"
+
+        # Grand total percentage (which will always be 100%)
+        percentage_query += f", CASE WHEN {grand_total} > 0 THEN 100 ELSE 0 END FROM purchases p"
+
+        # Combine the main query, totals, and percentage rows
+        final_query = sql_query + union_query + percentage_query
+
+        # Display the final query for debugging
+        #st.write("Executing SQL Query:")
+        #st.code(final_query)
+
+        # Execute the dynamic SQL query
+        cursor.execute(final_query)
+
+        results = cursor.fetchall()
+
+        # Get column names
+        column_names = [desc[0] for desc in cursor.description]
+
+        # Check if results were fetched
+        if not results:
+            st.error("No results found for the query.")
+            return
+
+        # Convert the results into a pandas DataFrame
+        df = pd.DataFrame(results, columns=column_names)
+
+        # Ensure numeric columns are correctly typed
+        for col in df.columns[1:]:  # All columns except 'stage'
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Create a copy for formatted display
+        formatted_df = df.copy()
+
+        # Format all numeric columns (except 'stage') as currency
+        for col in formatted_df.columns[1:-1]:  # All category columns (excluding Grand_Total)
+            formatted_df[col] = formatted_df[col].apply(format_currency)
+
+        grand_total_col = formatted_df.columns[-1]  # Get the last column name (Grand_Total)
+
+        # Change the dtype of the 'Grand_Total' column to 'object' to avoid dtype incompatibility warning
+        formatted_df[grand_total_col] = formatted_df[grand_total_col].astype('object')
+
+        for i in range(len(formatted_df) - 1):  # Loop through all rows except the last one
+            formatted_df.at[i, grand_total_col] = format_currency(df.at[i, grand_total_col])
+
+        # Format the last row (percentage row) correctly
+        last_row_index = formatted_df.index[-1]  # Index of the percentage row
+        for col in formatted_df.columns[1:]:  # All columns except 'stage'
+            if col != 'Stage':
+                raw_value = df.at[last_row_index, col]  # Get the raw numeric value
+                formatted_df.at[last_row_index, col] = format_percentage(raw_value)  # Format for display
+
+        # Highlight Total and Percentage rows
+        def highlight_rows(row):
+            if row['Stage'] == 'Total':
+                return ['background-color: lightblue'] * len(row)
+            elif row['Stage'] == 'Percentage':
+                return ['background-color: lightyellow'] * len(row)
             else:
-                st.error("You don't have access 😥!!")
-        else:
-            st.error("Failed to recognize the user 😥!!")
-            # st.error("Failed to fetch user information. Status Code: " + str(response.status_code))
+                return [''] * len(row)
 
-    # Handle the authorization code if present
-    code = st.query_params.get("code")
-    if code and "token" not in st.session_state:
-        try:
-            # Fetch the token using the code
-            token = oauth.fetch_token(token_url, code=code, grant_type="authorization_code")
-            st.session_state["token"] = token
-            st.success("Authentication completed successfully.")
-            st.rerun()  # Refresh the app to show user info
-        except Exception as e:
-            st.error(f"An error occurred during authentication")
+        # Apply highlighting
+        styled_df = formatted_df.style.apply(highlight_rows, axis=1)
+
+        # Display the styled DataFrame in Streamlit
+        st.dataframe(styled_df, use_container_width=True)
+
+    except sqlite3.Error as err:
+        st.error(f"Database Error: {err}")
 
 
-def show_main_functionality(service,conn,cursor):
-    # Your existing functionality for handling database operations, file uploads, etc.
-    st.write("Entering main functionality...")
+def delete_purchase_record():
+    # Establish the database connection
+    conn, cursor = db_cursor()
 
-    if st.button("Refresh"):
-        download_db_from_drive(service, FILE_ID, DB_NAME)
+    # Fetch existing purchase IDs for deletion
+    purchases_query = "SELECT purchase_id FROM purchases"
+    purchases = fetch_data_from_db(purchases_query)
 
-    # Fetch projects and display them
-    project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
-    project = fetch_data_from_db(project_query)
-    if project:
-        project_with_blank = ["Project Names with Project ID"] + project
-        project_selection = st.selectbox("Select the project:", project_with_blank)
-        project_id_selected = project_selection.split(' - ')[0]
+    # Convert list of tuples to a list of IDs for the select box
+    purchases_with_blank = ["Select Purchase ID to delete"] + purchases  # Flatten the list of tuples
 
-        if project_selection != "Project Names with Project ID":
-            st.success(f"You have selected the project: {project_selection}")
-            st.session_state['project_id_selected'] = project_id_selected
-            project_id = st.session_state['project_id_selected']
+    with st.form("delete_form"):
+        purchase_id = st.selectbox("Select Purchase ID", purchases_with_blank)
+        submitted = st.form_submit_button("Delete")
 
-            store_session_state("project_id_selected", project_id_selected)
-            store_session_state("project_selection", project_selection)
+        if submitted and purchase_id != "Select Purchase ID to delete":
+            # Set the purchase ID in session state for confirmation
+            st.session_state.purchase_id_to_delete = purchase_id
+            st.session_state.confirm_delete = True
 
-            categories = fetch_data_from_db('SELECT category FROM category')
-            payment_options = fetch_data_from_db('SELECT mode_of_payment FROM mode_of_payment')
-            stage_options = fetch_data_from_db('SELECT stage FROM stages')
+    # Confirmation message and action
+    if st.session_state.get("confirm_delete", False):
+        st.warning(f"Are you sure you want to delete Purchase ID: {st.session_state.purchase_id_to_delete}?", icon="⚠️")
+        fetch_and_display_data(f'select * from purchases where purchase_id = {st.session_state.purchase_id_to_delete}')
 
-            # Form for user data input
-            with st.form("purchases_data_entry"):
-                item_name = st.text_input("Enter the item name:")
-                item_qty = st.number_input("Enter the item quantity:", min_value=0, max_value=1000000)
-                stage = st.selectbox("Select stage:", stage_options)
-                category = st.selectbox("Select category:", categories)
-                vendor = st.text_input("Enter the vendor name:")
-                date = st.date_input("Select the date:")
-                purchase_amount = st.number_input("Enter the purchase amount:", min_value=0, max_value=1000000)
-                mode_of_payment = st.selectbox("Select mode of payment:", payment_options)
-                paid_amount = st.number_input("Enter the paid amount:", min_value=0, max_value=1000000)
-                notes = st.text_input("Add notes if necessary:")
-                submitted = st.form_submit_button("Submit")
+        # Buttons for confirmation
+        if st.button("Yes, delete"):
+            try:
+                cursor.execute("DELETE FROM purchases WHERE purchase_id = ?", (st.session_state.purchase_id_to_delete,))
+                conn.commit()
+                st.success(f"Purchase ID {st.session_state.purchase_id_to_delete} deleted successfully.")
+                # Reset the session state
+                st.session_state.confirm_delete = False
+            except sqlite3.Error as e:
+                st.error(f"An error occurred while deleting: {e}")
 
-            if submitted:
-                # Check if any fields are empty
-                required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
-                if all(required_fields) and (purchase_amount > 0 or paid_amount > 0):
-                    cursor.execute('''INSERT INTO purchases 
-                                    (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                                   (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
-                    conn.commit()
-                    st.success("Data submitted successfully!")
-                else:
-                    st.error("All fields are mandatory! Please fill in all fields.")
+        if st.button("No, cancel"):
+            st.info("Deletion canceled.")
+            # Reset the session state
+            st.session_state.confirm_delete = False
 
-            if st.button("View Purchases"):
-                cursor.execute(f'''
-                    SELECT 
-                        purchase_id as 'Purchase ID', 
-                        item_name as 'Item Name', 
-                        item_qty as 'Item Quantity', 
-                        vendor as Vendor, 
-                        stage as Stage, 
-                        category as Category,
-                        date as Date, 
-                        purchase_amount as 'Purchase Amount', 
-                        mode_of_payment as 'Mode of Payment',
-                        paid_amount as 'Paid Amount',
-                        notes as Notes
-                        FROM purchases
-                        WHERE project_id = {project_id}    
-                ''')
-                data = cursor.fetchall()
-                if data:
-                    results_df = DataFrame(data, columns=[desc[0] for desc in cursor.description])
-                    st.dataframe(results_df)
-                else:
-                    st.write("No data found for the selected criteria.")
-
-            delete_purchase_record()
-
-            if st.button("Save"):
-                existing_file_id = check_existing_file(service, DB_NAME)
-                if existing_file_id:
-                    result_id = upload_db_to_drive(service, DB_NAME, FILE_ID)
-                    print(f"Updated existing file with ID: {result_id}")
-                else:
-                    result_id = upload_db_to_drive(service, DB_NAME, None)  # Create new file
-                    st.write(f"Created new file with ID: {result_id}")
-
-                # Share the file with your email
-                if result_id:
-                    share_file_with_user(service, result_id, "awrfikghost@gmail.com")
-
-
-if __name__ == "__main__":
-    main()
+        # Reset the form if needed after the operation
+        if not st.session_state.get("confirm_delete", False):
+            st.rerun()

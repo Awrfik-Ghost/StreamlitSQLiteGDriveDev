@@ -1,80 +1,106 @@
 import streamlit as st
-from utils import (authenticate_gdrive, connect_db, download_db_from_drive, fetch_data_from_db,
-                   check_existing_file, upload_db_to_drive, share_file_with_user)
+from utils import (download_db_from_drive, fetch_data_from_db, check_existing_file, upload_db_to_drive,
+                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record, fetch_and_display_data)
 from config import DB_NAME, FILE_ID
 from pandas import DataFrame
-from googleapiclient.discovery import build
+from authlib.integrations.requests_client import OAuth2Session
 
 st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide")
-
-st.title("📚 Welcome to the Expense Tracker App")
+st.title("📚 Expense Tracker App")
 st.sidebar.success("Navigate yourself")
+
+# Define client ID and client secret from Google OAuth
+client_id = st.secrets['gdrive']['client_id_key']
+client_secret = st.secrets['gdrive']['client_secret_key']
+redirect_uri = "http://localhost:8501/"  # Ensure this matches the Google Cloud Console settings
+
+# Google OAuth 2.0 configuration
+authorize_url = "https://accounts.google.com/o/oauth2/auth"
+token_url = "https://oauth2.googleapis.com/token"
+userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+scope = "openid email profile"
+
+# Initialize OAuth session
+oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri, scope=scope)
+
+access_list = ['awrfikghost@gmail.com']
 
 
 def main():
     st.header("Expenses Data Entry")
-    creds = authenticate_gdrive()
-    conn = connect_db(DB_NAME)
-    cursor = conn.cursor()
+    service = establish_connections()
+    conn, cursor = db_cursor()
 
-    service = build('drive', 'v3', credentials=creds)
+    # Check for existing token in session state
+    if "token" not in st.session_state:
+        # Redirect to Google OAuth login
+        authorization_url, state = oauth.create_authorization_url(authorize_url)
+        st.link_button("Login with Google", url=authorization_url)
+    else:
+        # Load the token
+        token = st.session_state["token"]
+        oauth.token = token
+
+        # Fetch user info from Google
+        response = oauth.get(userinfo_url)
+
+        if response.status_code == 200:
+            userinfo = response.json()
+            user_email = userinfo.get("email")
+            user_name = userinfo.get("name")
+            if user_email in access_list:
+                # st.success(f"Logged in as: {user_email}")
+                st.success(f"Hi {user_name}!!, 📚 Welcome to Expense Tracker App")
+                # st.write(f"{userinfo}")
+                # Continue to the main functionality
+                show_main_functionality(service, conn, cursor)
+            else:
+                st.error("You don't have access 😥!!")
+        else:
+            st.error("Failed to recognize the user 😥!!")
+            # st.error("Failed to fetch user information. Status Code: " + str(response.status_code))
+
+    # Handle the authorization code if present
+    code = st.query_params.get("code")
+    if code and "token" not in st.session_state:
+        try:
+            # Fetch the token using the code
+            token = oauth.fetch_token(token_url, code=code, grant_type="authorization_code")
+            st.session_state["token"] = token
+            st.success("Authentication completed successfully.")
+            st.rerun()  # Refresh the app to show user info
+        except Exception as e:
+            st.error(f"An error occurred during authentication")
 
 
-    # if st.button("List Files"):
-    #     # Specify the directory path
-    #     directory_path = '/mount/src/streamlitsqlitegdrivedev/'
-    #     files = list_files_in_directory(directory_path)
-    #     # Display the file information in Streamlit
-    #     if files:
-    #         st.write("Files in Directory:")
-    #         for file in files:
-    #             st.write(f"File Name: {file['file_name']}, File ID: {file['file_id']}, Last Modified: {file['last_modified']}")
-    #     else:
-    #         st.write("No files found in the specified directory.")
-    #     list_files(service)
-
-
-    # gdrive_modified_time = get_google_drive_modified_time(service, FILE_ID)
-    # st.write(f"Google Drive file last modified: {gdrive_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    # Get the last modified time of the local database file
-    # local_modified_time = get_local_file_modified_time(DB_NAME)
-
-
-    # if local_modified_time:
-    #     st.write(f"Local file last modified: {local_modified_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    # else:
-    #     st.write("Local file does not exist.")
-
-
-    # Compare the modification times and download if Google Drive file is newer
-    # if not local_modified_time or gdrive_modified_time > local_modified_time:
-    #     # st.write("Google Drive file is newer, downloading the latest file...")
-    #     download_db_from_drive(service, FILE_ID, DB_NAME)
+def show_main_functionality(service,conn,cursor):
+    # Your existing functionality for handling database operations, file uploads, etc.
+    st.write("Entering main functionality...")
 
     if st.button("Refresh"):
         download_db_from_drive(service, FILE_ID, DB_NAME)
 
+    # Fetch projects and display them
     project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
-    project = fetch_data_from_db(DB_NAME, project_query)
+    project = fetch_data_from_db(project_query)
     if project:
-        # Adding a blank option to the project selection
         project_with_blank = ["Project Names with Project ID"] + project
-
         project_selection = st.selectbox("Select the project:", project_with_blank)
         project_id_selected = project_selection.split(' - ')[0]
 
         if project_selection != "Project Names with Project ID":
             st.success(f"You have selected the project: {project_selection}")
-            # Store the project ID in session state
             st.session_state['project_id_selected'] = project_id_selected
             project_id = st.session_state['project_id_selected']
 
-            categories = fetch_data_from_db(DB_NAME, 'SELECT category FROM category')
-            payment_options = fetch_data_from_db(DB_NAME, 'SELECT mode_of_payment FROM mode_of_payment')
-            stage_options = fetch_data_from_db(DB_NAME, 'SELECT stage FROM stages')
+            store_session_state("project_id_selected", project_id_selected)
+            store_session_state("project_selection", project_selection)
 
-            # Create a simple form for user data input
+            categories = fetch_data_from_db('SELECT category FROM category')
+            payment_options = fetch_data_from_db('SELECT mode_of_payment FROM mode_of_payment')
+            stage_options = fetch_data_from_db('SELECT stage FROM stages')
+
+            # Form for user data input
             with st.form("purchases_data_entry"):
                 item_name = st.text_input("Enter the item name:")
                 item_qty = st.number_input("Enter the item quantity:", min_value=0, max_value=1000000)
@@ -92,11 +118,10 @@ def main():
                 # Check if any fields are empty
                 required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
                 if all(required_fields) and (purchase_amount > 0 or paid_amount > 0):
-                    cursor.execute('''
-                            INSERT INTO purchases 
-                            (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
+                    cursor.execute('''INSERT INTO purchases 
+                                    (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                   (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
                     conn.commit()
                     st.success("Data submitted successfully!")
                 else:
@@ -105,16 +130,16 @@ def main():
             if st.button("View Purchases"):
                 cursor.execute(f'''
                     SELECT 
-                        purchase_id as Purchase_ID, 
-                        item_name as Item_Name, 
-                        item_qty as Item_Quantity, 
+                        purchase_id as 'Purchase ID', 
+                        item_name as 'Item Name', 
+                        item_qty as 'Item Quantity', 
                         vendor as Vendor, 
                         stage as Stage, 
                         category as Category,
                         date as Date, 
-                        purchase_amount as Purchase_Amount, 
-                        mode_of_payment as Mode_of_Payment,
-                        paid_amount as Paid_Amount,
+                        purchase_amount as 'Purchase Amount', 
+                        mode_of_payment as 'Mode of Payment',
+                        paid_amount as 'Paid Amount',
                         notes as Notes
                         FROM purchases
                         WHERE project_id = {project_id}    
@@ -125,6 +150,8 @@ def main():
                     st.dataframe(results_df)
                 else:
                     st.write("No data found for the selected criteria.")
+
+            delete_purchase_record()
 
             if st.button("Save"):
                 existing_file_id = check_existing_file(service, DB_NAME)
@@ -138,10 +165,6 @@ def main():
                 # Share the file with your email
                 if result_id:
                     share_file_with_user(service, result_id, "awrfikghost@gmail.com")
-
-    # Close the connection at the end
-    cursor.close()
-    conn.close()
 
 
 if __name__ == "__main__":
