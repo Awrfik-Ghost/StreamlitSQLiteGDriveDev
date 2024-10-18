@@ -1,5 +1,5 @@
 import streamlit as st
-from utils import to_title_case, fetch_data_from_db, to_lower_case, fetch_and_display_data, get_purchase_amounts
+from utils import to_title_case, fetch_data_from_db, to_lower_case, fetch_and_display_data, get_purchase_amounts, purchase_amounts
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
             st.success(f"You're now able to access this project: {st.session_state['project_selection']}")
 
             st.header("Construction Expenses")
-            get_purchase_amounts()
+            purchase_amounts()
 
             # Requested column names
             column_names = ['category', 'vendor', 'stage', 'mode_of_payment']
@@ -83,8 +83,8 @@ def main():
 
                 fetch_and_display_data(expenditure_on_each_stage)
 
-            # if st.button('Report'):
-            #     get_purchase_amounts()
+            if st.button('Report'):
+                get_purchase_amounts()
 
     except Exception as e:
         st.warning(f"Please select the project in Home Page !!")
