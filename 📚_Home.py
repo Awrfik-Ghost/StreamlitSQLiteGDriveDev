@@ -23,7 +23,7 @@ scope = "openid email profile"
 # Initialize OAuth session
 oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri, scope=scope)
 
-access_list = ['awrfikghost@gmail.com']
+access_list = ['awrfikghost@gmail.com','harishy.bio@gmail.com']
 
 
 def main():
