@@ -222,6 +222,11 @@ def fetch_and_display_data(query):
             # Convert rows to a pandas DataFrame for better display
             results_df = pd.DataFrame(results, columns=[desc[0] for desc in cursor.description])
 
+            # Check if 'Purchase Amount' column exists and apply formatting
+            for col in ['Purchase Amount','Paid Amount','Difference']:
+                if col in results_df.columns:
+                    results_df[col] = results_df[col].apply(format_currency)
+
             # Display the DataFrame in tabular format
             st.dataframe(results_df)  # You can also use st.table(df) for a static table
         else:
@@ -329,7 +334,7 @@ def list_files_in_directory(directory):
 # Overall Expenses report
 # ----------------------------------------------------------------------------------------------------
 
-def get_purchase_amounts():
+def expenses_pivot():
     # Establish the database connection
     conn, cursor = db_cursor()
 
