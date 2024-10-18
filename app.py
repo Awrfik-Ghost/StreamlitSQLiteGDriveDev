@@ -30,6 +30,9 @@ def main():
     st.header("Expenses Data Entry")
     service = establish_connections()
     conn, cursor = db_cursor()
+    st.write(f"Current Redirect URI: {redirect_uri}")
+    st.write(f"Expected Redirect URI from Google Console: {your_authorized_redirect_uri}")
+
 
     # Check for existing token in session state
     if "token" not in st.session_state:
