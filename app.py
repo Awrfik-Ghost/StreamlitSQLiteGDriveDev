@@ -127,7 +127,7 @@ def show_main_functionality(service,conn,cursor):
 
                 # Second column: Selectbox for units or item type
                 with col3:
-                    item_qty = st.number_input("Enter the item quantity:", min_value=0, max_value=1000000)
+                    item_qty = st.number_input("Enter the item quantity:", min_value=0.0, max_value=1000000.0, step=0.01)
 
                 stage = st.selectbox("Select stage:", stage_options)
                 category = st.selectbox("Select category:", categories)
@@ -174,7 +174,7 @@ def show_main_functionality(service,conn,cursor):
                         CASE 
                         WHEN unit = 'Nos' or unit = 'Others' OR unit is null
                         THEN COALESCE(CAST(item_qty AS INTEGER),'') || ' ' || COALESCE(unit,'')
-                        ELSE COALESCE(item_qty,'') || ' ' || COALESCE(unit,'')
+                        ELSE COALESCE(printf('%.2f', item_qty), '') || ' ' || COALESCE(unit,'')
                         END AS 'Item Quantity',
                         vendor as Vendor, 
                         stage as Stage, 
