@@ -147,6 +147,7 @@ def show_main_functionality(service,conn,cursor):
                     paid_by = st.text_input("Who paid the amount?:")
                 else:
                     paid_amount = 0  # Default to 0 if 'No Payment' is selected
+                    paid_by = None
 
                 notes = st.text_input("Add notes if necessary:")
                 submitted = st.form_submit_button("Submit")
