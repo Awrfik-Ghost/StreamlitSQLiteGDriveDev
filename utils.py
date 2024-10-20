@@ -10,6 +10,8 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from datetime import datetime
 import pandas as pd
 from config import DB_NAME
+from time import sleep
+import datetime
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -174,7 +176,7 @@ def download_db_from_drive(service, file_id, file_name):
     done = False
     while not done:
         status, done = downloader.next_chunk()  # Download in chunks
-        # st.write(f"Download progress: {int(status.progress() * 100)}%")
+        #display_loading_message(f"Download progress: {int(status.progress() * 100)}%")
     st.success(f"Data refreshed")
 
 # ----------------------------------------------------------------------------------------------------
@@ -242,12 +244,80 @@ def fetch_and_display_data(query):
         st.error(f"An unexpected error occurred: {e}")
 
 
+# ----------------------------------------------------------------------------------------------------
+# Handling session state
+# ----------------------------------------------------------------------------------------------------
+
+
 # Function to store the selected value in session state
 def store_session_state(key, value):
     if key == 'project_selection' and value == "Project Names with Project ID" or value == 'Null' or value == '':
         st.warning("Please select a valid project")
     else:
         st.session_state[key] = value
+
+
+# Function to clear vendor input when switching options
+def clear_input(key):
+    if key in st.session_state:
+        del st.session_state[key]
+
+
+def display_loading_message(text, duration=1, element_type='text'):
+    """Updates a placeholder with the specified Streamlit element for a specified duration.
+
+    Args:
+        text (str): The text to display in the placeholder.
+        duration (int): How long to display the element (in seconds).
+        element_type (str): The type of element to display ('text', 'markdown', 'header', etc.).
+    """
+    # Create a placeholder
+    placeholder = st.empty()
+
+    # Display the specified Streamlit element in the placeholder
+    with placeholder:
+        if element_type == 'text':
+            st.write(text)
+        elif element_type == 'markdown':
+            st.markdown(text)
+        elif element_type == 'header':
+            st.header(text)
+        elif element_type == 'subheader':
+            st.subheader(text)
+        elif element_type == 'error':
+            st.error(text)
+        elif element_type == 'success':
+            st.success(text)
+        elif element_type == 'warning':
+            st.warning(text)
+        elif element_type == 'info':
+            st.info(text)
+        else:
+            st.write("Invalid element type specified.")
+
+        sleep(duration)  # Simulating a delay for the duration specified
+
+    # Clear the placeholder
+    placeholder.empty()
+
+
+
+def register_date_adapter_converter():
+    """Register SQLite adapters and converters for datetime.date objects."""
+
+    # Define the adapter to convert datetime.date to string
+    def adapt_date(date_obj):
+        """Convert datetime.date to string for SQLite."""
+        return date_obj.strftime("%Y-%m-%d")
+
+    # Define the converter to convert string back to datetime.date
+    def convert_date(date_str):
+        """Convert string back to datetime.date."""
+        return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+
+    # Register the adapter and converter for SQLite
+    sqlite3.register_adapter(datetime.date, adapt_date)
+    sqlite3.register_converter("DATE", convert_date)
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -605,12 +675,6 @@ def purchase_amounts():
 
     except sqlite3.Error as err:
         st.error(f"Database Error: {err}")
-
-
-
-
-
-
 
 
 # ----------------------------------------------------------------------------------------------------

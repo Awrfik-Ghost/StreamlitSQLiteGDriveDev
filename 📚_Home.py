@@ -1,12 +1,14 @@
 import streamlit as st
 from utils import (download_db_from_drive, fetch_data_from_db, check_existing_file, upload_db_to_drive,
-                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record)
-from config import DB_NAME, FILE_ID
+                   share_file_with_user, db_cursor, establish_connections, store_session_state, delete_purchase_record,
+                   clear_input, register_date_adapter_converter)
+from config import DB_NAME, FILE_ID, access_list
 from pandas import DataFrame
 from authlib.integrations.requests_client import OAuth2Session
+import datetime
 
-st.set_page_config(page_title="Tracking Expenses App", page_icon="📚", layout="wide")
-st.title("📚 Expense Tracker App")
+st.set_page_config(page_title="Construction Expenses Tracking App", page_icon="📚", layout="wide")
+st.title("📚 Construction Expenses Tracking App")
 st.sidebar.success("Navigate yourself")
 
 # Define client ID and client secret from Google OAuth
@@ -23,11 +25,9 @@ scope = "openid email profile"
 # Initialize OAuth session
 oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri, scope=scope)
 
-access_list = ['awrfikghost@gmail.com','harishy.bio@gmail.com']
-
 
 def main():
-    st.header("Expenses Data Entry")
+    #st.header("Expenses Data Entry")
     service = establish_connections()
     conn, cursor = db_cursor()
 
@@ -75,10 +75,17 @@ def main():
 
 def show_main_functionality(service,conn,cursor):
     # Your existing functionality for handling database operations, file uploads, etc.
-    st.write("Entering main functionality...")
+    #st.info("Entering main functionality...")
 
     if st.button("Refresh"):
-        download_db_from_drive(service, FILE_ID, DB_NAME)
+        existing_file_id = check_existing_file(service, DB_NAME)
+        if existing_file_id:
+            download_db_from_drive(service, FILE_ID, DB_NAME)
+            print(f"Updated existing file with ID: {FILE_ID}")
+        else:
+            result_id = upload_db_to_drive(service, DB_NAME, None)
+            share_file_with_user(service, result_id, access_list)
+            st.write(f"Created new file with ID: {result_id}")
 
     # Fetch projects and display them
     project_query = "SELECT project_id || ' - ' || project_name AS project FROM projects;"
@@ -99,18 +106,49 @@ def show_main_functionality(service,conn,cursor):
             categories = fetch_data_from_db('SELECT category FROM category')
             payment_options = fetch_data_from_db('SELECT mode_of_payment FROM mode_of_payment')
             stage_options = fetch_data_from_db('SELECT stage FROM stages')
+            existing_vendors = fetch_data_from_db('SELECT distinct vendor FROM purchases')
+            vendor_option = st.selectbox("Vendor Type:", ["Select Existing Vendor", "Enter New Vendor"], on_change=lambda: clear_input('vendor'))
+            mode_of_payment = st.selectbox("Select mode of payment:", payment_options, on_change=lambda: clear_input('paid_amount'),
+                                           key="mode_of_payment", placeholder="Select Mode of Payment")
 
             # Form for user data input
             with st.form("purchases_data_entry"):
-                item_name = st.text_input("Enter the item name:")
-                item_qty = st.number_input("Enter the item quantity:", min_value=0, max_value=1000000)
+                st.header("🧾 Purchase Data Entry Form")
+                # Create two columns
+                col1, col2, col3 = st.columns(3)
+
+                # First column: Item name input
+                with col1:
+                    item_name = st.text_input("Enter the item name:")
+
+                # Second column: Item quantity input
+                with col2:
+                    unit = st.selectbox("Select unit:", ["Nos", "MT", "Liters", "Units", "Kg", "Others"])
+
+                # Second column: Selectbox for units or item type
+                with col3:
+                    item_qty = st.number_input("Enter the item quantity:", min_value=0.0, max_value=1000000.0, step=0.01)
+
                 stage = st.selectbox("Select stage:", stage_options)
                 category = st.selectbox("Select category:", categories)
-                vendor = st.text_input("Enter the vendor name:")
-                date = st.date_input("Select the date:")
+
+                # Conditional input based on vendor option
+                if vendor_option == "Select Existing Vendor":
+                    vendor = st.selectbox("Select vendor:", existing_vendors, key="vendor")
+                elif vendor_option == "Enter New Vendor":
+                    vendor = st.text_input("Enter the new vendor name:", key="vendor")
+                register_date_adapter_converter()
+                date = st.date_input("Select the date:",datetime.date.today(), min_value=datetime.date(2000, 1, 1), max_value=datetime.date.today())
                 purchase_amount = st.number_input("Enter the purchase amount:", min_value=-10000, max_value=1000000, value = 0)
-                mode_of_payment = st.selectbox("Select mode of payment:", payment_options)
-                paid_amount = st.number_input("Enter the paid amount:", min_value=-10000, max_value=1000000, value = 0)
+
+                # Conditionally display the paid amount input
+                if mode_of_payment != "No Payment":
+                    paid_amount = st.number_input("Enter the paid amount:", min_value=0, max_value=1000000, value=0, key="paid_amount")
+                    paid_by = st.text_input("Who paid the amount?:")
+                else:
+                    paid_amount = 0  # Default to 0 if 'No Payment' is selected
+                    paid_by = None
+
                 notes = st.text_input("Add notes if necessary:")
                 submitted = st.form_submit_button("Submit")
 
@@ -119,9 +157,9 @@ def show_main_functionality(service,conn,cursor):
                 required_fields = [item_name, vendor, mode_of_payment, category, stage, date]
                 if all(required_fields) and (purchase_amount > -10000 or paid_amount > 0):
                     cursor.execute('''INSERT INTO purchases 
-                                    (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                                   (project_id, item_name, item_qty, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, notes))
+                                    (project_id, item_name, item_qty, unit, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, paid_by, notes)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                   (project_id, item_name, item_qty, unit, vendor, stage, category, date, purchase_amount, mode_of_payment, paid_amount, paid_by, notes))
                     conn.commit()
                     st.success("Data submitted successfully!")
                 else:
@@ -131,8 +169,14 @@ def show_main_functionality(service,conn,cursor):
                 cursor.execute(f'''
                     SELECT 
                         purchase_id as 'Purchase ID', 
-                        item_name as 'Item Name', 
-                        item_qty as 'Item Quantity', 
+                        item_name as 'Item Name',
+                        unit as 'Unit', 
+                        item_qty as 'Item Qty',                        
+                        CASE 
+                        WHEN unit = 'Nos' or unit = 'Others' OR unit is null
+                        THEN COALESCE(CAST(item_qty AS INTEGER),'') || ' ' || COALESCE(unit,'')
+                        ELSE COALESCE(printf('%.2f', item_qty), '') || ' ' || COALESCE(unit,'')
+                        END AS 'Item Quantity',
                         vendor as Vendor, 
                         stage as Stage, 
                         category as Category,
@@ -140,6 +184,7 @@ def show_main_functionality(service,conn,cursor):
                         purchase_amount as 'Purchase Amount', 
                         mode_of_payment as 'Mode of Payment',
                         paid_amount as 'Paid Amount',
+                        paid_by as 'Paid By',
                         notes as Notes
                         FROM purchases
                         WHERE project_id = {project_id}    
